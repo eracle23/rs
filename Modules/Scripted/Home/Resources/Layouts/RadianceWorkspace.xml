@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<layout type="vertical" split="false">
+  <item>
+    <view class="vtkMRMLViewNode" singletontag="Alice3DView">
+      <property name="viewlabel" value="3D"/>
+      <property name="viewgroup" value="0"/>
+      <property name="orientation" value="Axial"/>
+    </view>
+  </item>
+  <item>
+    <layout type="horizontal" split="true">
+      <item>
+        <view class="vtkMRMLSliceNode" singletontag="Red">
+          <property name="orientation" value="Axial"/>
+          <property name="viewlabel" value="Axial"/>
+          <property name="viewcolor" value="0.95,0.32,0.32"/>
+        </view>
+      </item>
+      <item>
+        <view class="vtkMRMLSliceNode" singletontag="Green">
+          <property name="orientation" value="Sagittal"/>
+          <property name="viewlabel" value="Sagittal"/>
+          <property name="viewcolor" value="0.30,0.80,0.30"/>
+        </view>
+      </item>
+    </layout>
+  </item>
+</layout>

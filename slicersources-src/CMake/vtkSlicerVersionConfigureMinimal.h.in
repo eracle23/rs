@@ -1,0 +1,118 @@
+/*=auto=========================================================================
+
+ Portions (c) Copyright 2005 Brigham and Women's Hospital (BWH)
+ All Rights Reserved.
+
+ See COPYRIGHT.txt
+ or http://www.slicer.org/copyright/copyright.txt for details.
+
+ Program:   3D Slicer
+
+=========================================================================auto=*/
+
+#ifndef __vtkSlicerVersionConfigureMinimal_h
+#define __vtkSlicerVersionConfigureMinimal_h
+
+/// \file vtkSlicerVersionConfigureMinimal.h
+/// \brief Defines macros identifying the operating system, architecture and version of this project.
+///
+/// The macros provided in this file identify the operating system, architecture, and
+/// version of this project.
+///
+/// The file is prefixed with "Minimal" because it provides a subset of the version
+/// information that rarely changes. Indeed, these macros are occasionally modified
+/// by updating the `Slicer_VERSION_*` or `Slicer_RELEASE_TYPE` CMake options
+/// (e.g., when creating a release).
+///
+/// If you need version information specific to the current revision of this project
+/// source code, consider including `vtkSlicerVersionConfigure.h` instead of this header.
+///
+
+//-----------------------------------------------------------------------------
+/// \def Slicer_VERSION_MAJOR
+/// Major version number of this project source and binaries.
+#define Slicer_VERSION_MAJOR @Slicer_VERSION_MAJOR@
+
+/// \def Slicer_VERSION_MINOR
+/// Minor version number of this project source and binaries.
+#define Slicer_VERSION_MINOR @Slicer_VERSION_MINOR@
+
+/// \def Slicer_VERSION_PATCH
+/// Patch version number of this project source and binaries.
+#define Slicer_VERSION_PATCH @Slicer_VERSION_PATCH@
+
+/// \def Slicer_VERSION_NUMBER_COMPUTE(major, minor, patch)
+/// \brief Macro that computes Slicer_VERSION_NUMBER from major, minor, and patch numbers.
+/// This can be used for comparing Slicer version in #if/#else directives.
+/// This is useful when implementing Slicer extensions that need to be compatible
+/// with multiple Slicer core versions.
+///
+/// Example:
+///
+/// #if Slicer_VERSION_NUMBER >= Slicer_VERSION_NUMBER_COMPUTE(5, 9, 0)
+///   ... code compatible with Slicer-5.9.0 and newer
+/// #else
+///   ... code compatible with older Slicer versions
+/// #endif
+///
+/// Available since Slicer-5.7.0.
+/// Implementation is based on VTK_VERSION_CHECK (inspired by QT_VERSION_CHECK).
+#define Slicer_VERSION_NUMBER_COMPUTE(major, minor, patch) (10000000000ULL * major + 100000000ULL * minor + patch)
+
+/// \def Slicer_VERSION_NUMBER
+/// \brief This number is can be used for Slicer version check macro in #if/#else directives.
+/// The number can be compared to a fixed version computed by Slicer_VERSION_NUMBER_COMPUTE(major, minor, patch).
+/// Available since Slicer-5.7.0.
+/// Implementation is based on VTK_VERSION_NUMBER (inspired by QT_VERSION).
+#define Slicer_VERSION_NUMBER Slicer_VERSION_NUMBER_COMPUTE(Slicer_VERSION_MAJOR, Slicer_VERSION_MINOR, Slicer_VERSION_PATCH)
+
+//-----------------------------------------------------------------------------
+/// \def Slicer_MAIN_PROJECT_VERSION_MAJOR
+#define Slicer_MAIN_PROJECT_VERSION_MAJOR @Slicer_MAIN_PROJECT_VERSION_MAJOR@
+
+/// \def Slicer_MAIN_PROJECT_VERSION_MINOR
+#define Slicer_MAIN_PROJECT_VERSION_MINOR @Slicer_MAIN_PROJECT_VERSION_MINOR@
+
+/// \def Slicer_MAIN_PROJECT_VERSION_PATCH
+#define Slicer_MAIN_PROJECT_VERSION_PATCH @Slicer_MAIN_PROJECT_VERSION_PATCH@
+
+//-----------------------------------------------------------------------------
+/// \def Slicer_VERSION
+/// \brief Slicer version string.
+///
+/// Format is `<Slicer_VERSION_MAJOR>.<Slicer_VERSION_MINOR>`.
+#define Slicer_VERSION "@Slicer_VERSION@"
+
+//-----------------------------------------------------------------------------
+/// \def Slicer_MAIN_PROJECT_VERSION
+/// \brief Slicer main project version string.
+///
+/// Format is `<Slicer_MAIN_PROJECT_VERSION_MAJOR>.<Slicer_MAIN_PROJECT_VERSION_MINOR>`.
+#define Slicer_MAIN_PROJECT_VERSION "@Slicer_MAIN_PROJECT_VERSION@"
+
+//-----------------------------------------------------------------------------
+/// \def Slicer_OS_LINUX_NAME
+/// String describing Linux operating system.
+#define Slicer_OS_LINUX_NAME "@Slicer_OS_LINUX_NAME@"
+
+/// \def Slicer_OS_MAC_NAME
+/// String describing macOS operating system.
+#define Slicer_OS_MAC_NAME "@Slicer_OS_MAC_NAME@"
+
+/// \def Slicer_OS_WIN_NAME
+/// String describing Windows operating system.
+#define Slicer_OS_WIN_NAME "@Slicer_OS_WIN_NAME@"
+
+/// \def Slicer_ARCHITECTURE
+/// \brief String describing the architecture associated with this project binaries.
+#define Slicer_ARCHITECTURE "@Slicer_ARCHITECTURE@"
+
+/// \def Slicer_OS
+/// \brief String describing the operating system associated with this project binaries.
+#define Slicer_OS "@Slicer_OS@"
+
+/// \def Slicer_RELEASE_TYPE
+/// \brief Type of Slicer release: `Experimental`, `Nightly` or `Stable`.
+#define Slicer_RELEASE_TYPE "@Slicer_RELEASE_TYPE@"
+
+#endif
