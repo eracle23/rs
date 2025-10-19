@@ -1,0 +1,62 @@
+#Home {
+  background-color: #f5f6f8;
+}
+
+#Home QLabel#titleLabel {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1d2a3a;
+}
+
+#Home QLabel#taglineLabel {
+  font-size: 13px;
+  color: #3d4c5f;
+}
+
+#Home QLabel {
+  color: #37475c;
+}
+
+#Home QWidget[radianceCard="true"] {
+  background-color: #ffffff;
+  border: 1px solid #d9dee7;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+#Home QPushButton {
+  background-color: #2f7de0;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-weight: 600;
+}
+
+#Home QPushButton:hover {
+  background-color: #3e8cf0;
+}
+
+#Home QPushButton:pressed {
+  background-color: #2c6cc0;
+}
+
+#Home QPushButton[variant="secondary"] {
+  background-color: transparent;
+  color: #2f7de0;
+  border: 1px solid #2f7de0;
+}
+
+#Home QPushButton[variant="secondary"]:hover {
+  background-color: rgba(47, 125, 224, 0.08);
+}
+
+#Home QPushButton[variant="secondary"]:pressed {
+  background-color: rgba(47, 125, 224, 0.18);
+}
+
+#Home QPushButton:disabled {
+  background-color: #aab4c4;
+  color: #f1f3f6;
+  border: none;
+}
