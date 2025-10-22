@@ -1,9 +1,8 @@
-
 set(APPLICATION_NAME
-  Radiance
+  Alice
   )
 set(APPLICATION_DISPLAY_NAME
-  "Radiance Studio"
+  "Alice Studio"
   )
 
 set(VERSION_MAJOR
@@ -34,5 +33,5 @@ set(WIN_ICON_FILE
   )
 
 set(LICENSE_FILE
-  "${RadianceSuite_SOURCE_DIR}/LICENSE"
+  "${CMAKE_CURRENT_LIST_DIR}/Resources/LICENSE.txt"
   )

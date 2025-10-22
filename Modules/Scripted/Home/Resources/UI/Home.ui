@@ -29,7 +29,7 @@
    <item>
     <widget class="QLabel" name="titleLabel">
      <property name="text">
-      <string>Welcome to Radiance Studio</string>
+      <string>Welcome to Alice Studio</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignLeft|Qt::AlignTop</set>
@@ -201,7 +201,7 @@
         <item>
          <widget class="QPushButton" name="workspaceLayoutButton">
           <property name="text">
-           <string>Radiance workspace</string>
+           <string>Alice workspace</string>
           </property>
           <property name="toolTip">
            <string>3D overview with paired axial and sagittal slices.</string>
@@ -254,7 +254,7 @@
       <item>
        <widget class="QLabel" name="resourcesLinksLabel">
         <property name="text">
-         <string>&lt;a href=&quot;https://radiancelabs.com/docs&quot;&gt;Documentation&lt;/a&gt; · &lt;a href=&quot;https://radiancelabs.com/changelog&quot;&gt;Release notes&lt;/a&gt;</string>
+         <string>&lt;a href=&quot;https://alicelabs.com/docs&quot;&gt;Documentation&lt;/a&gt; · &lt;a href=&quot;https://alicelabs.com/changelog&quot;&gt;Release notes&lt;/a&gt;</string>
         </property>
         <property name="textFormat">
          <enum>Qt::RichText</enum>

@@ -30,10 +30,10 @@ class Home(ScriptedLoadableModule):
         self.parent.title = "Home"
         self.parent.categories = [""]
         self.parent.dependencies = []
-        self.parent.contributors = ["Experience Engineering (Radiance Labs)"]
-        self.parent.helpText = """Radiance Studio home surfaces common workflows, layouts, and learning resources in one place."""
+        self.parent.contributors = ["Experience Engineering (Alice Labs)"]
+        self.parent.helpText = """Alice Studio home surfaces common workflows, layouts, and learning resources in one place."""
         self.parent.helpText += self.getDefaultModuleDocumentationLink()
-        self.parent.acknowledgementText = """Radiance Studio builds on 3D Slicer (BSD license)."""
+        self.parent.acknowledgementText = """Alice Studio builds on 3D Slicer (BSD license)."""
 
 
 class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
@@ -244,36 +244,12 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def applyApplicationStyle(self):
         SlicerCustomAppUtilities.applyStyle([slicer.app], self.resourcePath("Home.qss"))
-        self.styleThreeDWidget()
-        self.styleSliceWidgets()
         self._polish(self.uiWidget)
 
     def _polish(self, widget: qt.QWidget):
         widget.style().unpolish(widget)
         widget.style().polish(widget)
         widget.update()
-
-    def styleThreeDWidget(self):
-        viewNode = slicer.app.layoutManager().threeDWidget(0).mrmlViewNode()  # noqa: F841
-        # viewNode.SetBackgroundColor(0.0, 0.0, 0.0)
-        # viewNode.SetBackgroundColor2(0.0, 0.0, 0.0)
-        # viewNode.SetBoxVisible(False)
-        # viewNode.SetAxisLabelsVisible(False)
-        # viewNode.SetOrientationMarkerType(slicer.vtkMRMLViewNode.OrientationMarkerTypeAxes)
-
-    def styleSliceWidgets(self):
-        for name in slicer.app.layoutManager().sliceViewNames():
-            sliceWidget = slicer.app.layoutManager().sliceWidget(name)
-            self.styleSliceWidget(sliceWidget)
-
-    def styleSliceWidget(self, sliceWidget: slicer.qMRMLSliceWidget):
-        controller = sliceWidget.sliceController()  # noqa: F841
-        # controller.sliceViewLabel = ""
-        # slicer.util.findChild(sliceWidget, "PinButton").visible = False
-        # slicer.util.findChild(sliceWidget, "ViewLabel").visible = False
-        # slicer.util.findChild(sliceWidget, "FitToWindowToolButton").visible = False
-        # slicer.util.findChild(sliceWidget, "SliceOffsetSlider").spinBoxVisible = False
-
 
 class HomeLogic(ScriptedLoadableModuleLogic):
     """

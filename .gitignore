@@ -1,2 +1,5 @@
 build/
 SlicerCustomAppUtilities/
+build_vs17/
+build_vs17_backup/
+Slicer_build_configure.log

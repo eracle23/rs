@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <layout type="vertical" split="false">
   <item>
-    <view class="vtkMRMLViewNode" singletontag="Radiance3DView">
+    <view class="vtkMRMLViewNode" singletontag="Alice3DView">
       <property name="viewlabel" value="3D"/>
       <property name="viewgroup" value="0"/>
       <property name="orientation" value="Axial"/>

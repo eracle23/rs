@@ -22,24 +22,32 @@ else()
   set(slicersources_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/slicersources-subbuild)
 endif()
 
+ # Note: Do not modify upstream Slicer sources; instead rely on cache
+ # variables (e.g., `Slicer_EXTENSIONS_DIRBASENAME`) forwarded via
+ # `mark_as_superbuild(...)` and normal add_subdirectory cache scoping.
+
 # macOS initialization
 set(CMAKE_MODULE_PATH ${slicersources_SOURCE_DIR}/CMake ${CMAKE_MODULE_PATH})
 include(SlicerInitializeOSXVariables)
 
-project(RadianceSuite)
+project(AliceSuite)
 
 # Configure Application
 set(Slicer_APPLICATIONS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Applications)
 set(Slicer_MAIN_PROJECT "RadianceApp")
 
 # Set organization
-set(Slicer_ORGANIZATION_DOMAIN "radiancelabs.com")
-set(Slicer_ORGANIZATION_NAME   "Radiance Labs")
+set(Slicer_ORGANIZATION_DOMAIN "alicelabs.com")
+set(Slicer_ORGANIZATION_NAME   "Alice Labs")
 
 # Default home and favorite modules
-set(SlicerApp_APPLICATION_NAME "Radiance")
-set(SlicerApp_APPLICATION_DISPLAY_NAME "Radiance Studio")
-set(Slicer_DISCLAIMER_AT_STARTUP "Radiance Studio is intended for research use only and is not cleared for diagnostic use.")
+set(SlicerApp_APPLICATION_NAME "Alice")
+set(SlicerApp_APPLICATION_DISPLAY_NAME "Alice Studio")
+set(Slicer_DISCLAIMER_AT_STARTUP "Alice Studio is intended for research use only and is not cleared for diagnostic use.")
+set(Slicer_EXTENSIONS_DIRBASENAME "AliceExtensions" CACHE STRING "Extensions directory name")
+if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
+  message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")
+endif()
 set(Slicer_DEFAULT_HOME_MODULE "Home")
 set(Slicer_DEFAULT_FAVORITE_MODULES "Home, Data, SegmentEditor, VolumeRendering, Transforms")
 
@@ -47,6 +55,7 @@ set(Slicer_DEFAULT_FAVORITE_MODULES "Home, Data, SegmentEditor, VolumeRendering,
 set(SUPERBUILD_TOPLEVEL_PROJECT Slicer)
 set(EXTERNAL_PROJECT_ADDITIONAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SuperBuild")
 include(ExternalProjectDependency)
+mark_as_superbuild(Slicer_EXTENSIONS_DIRBASENAME:STRING)
 
 # Additional Slicer dependencies looked up in EXTERNAL_PROJECT_ADDITIONAL_DIR
 set(Slicer_ADDITIONAL_DEPENDENCIES
@@ -124,26 +133,16 @@ set(Slicer_QTSCRIPTEDMODULES_ENABLED
 # Disable Slicer built-in modules
 set(Slicer_CLIMODULES_DISABLED
   )
-set(Slicer_QTLOADABLEMODULES_DISABLED
-  SceneViews
-  SlicerWelcome
-  ViewControllers
-  )
+set(Slicer_QTLOADABLEMODULES_DISABLED)
 set(Slicer_QTSCRIPTEDMODULES_DISABLED
-  DataProbe
-  DMRIInstall
-  Endoscopy
-  LabelStatistics
-  PerformanceTests
-  SampleData
-  VectorToScalarVolume
+  SlicerWelcome
   )
 
 # Enable/Disable Slicer custom modules: To create a new module, use the SlicerExtensionWizard.
 set(Slicer_EXTENSION_SOURCE_DIRS
-  #${RadianceSuite_SOURCE_DIR}/Modules/CLI/MyCLIModule
-  #${RadianceSuite_SOURCE_DIR}/Modules/Loadable/MyLoadableModule
-  ${RadianceSuite_SOURCE_DIR}/Modules/Scripted/Home
+  #${CMAKE_CURRENT_SOURCE_DIR}/Modules/CLI/MyCLIModule
+  #${CMAKE_CURRENT_SOURCE_DIR}/Modules/Loadable/MyLoadableModule
+  ${CMAKE_CURRENT_SOURCE_DIR}/Modules/Scripted/Home
   )
 
 # Add remote extension source directories

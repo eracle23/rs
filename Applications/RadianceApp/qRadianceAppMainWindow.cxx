@@ -20,19 +20,43 @@
 #include "qRadianceAppMainWindow_p.h"
 
 // Qt includes
-#include <QDesktopWidget>
-#include <QLabel>
-#include <QToolBar>
+#include <QAction>
+#include <QApplication>
+#include <QColor>
 #include <QDesktopServices>
+#include <QDesktopWidget>
+#include <QFont>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QList>
+#include <QMenu>
+#include <QPainter>
+#include <QPen>
+#include <QPixmap>
+#include <QSize>
+#include <QStandardItem>
+#include <QStandardItemModel>
+#include <QTimer>
+#include <QToolBar>
 #include <QUrl>
+#include <algorithm>
+#include <functional>
+#include <utility>
 
 // Slicer includes
-#include "qSlicerApplication.h"
+#include "qSlicerAbstractModule.h"
 #include "qSlicerAboutDialog.h"
+#include "qSlicerApplication.h"
 #include "qSlicerMainWindow_p.h"
+#include "qSlicerModuleFactoryFilterModel.h"
+#include "qSlicerModuleFinderDialog.h"
+#include "qSlicerModuleManager.h"
 #include "qSlicerModuleSelectorToolBar.h"
+#include "qSlicerModulesListView.h"
 #include <qMRMLWidget.h>
 
+// CTK includes
+#include <ctkMenuComboBox.h>
 //-----------------------------------------------------------------------------
 // qRadianceAppMainWindowPrivate methods
 
@@ -124,40 +148,36 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   //----------------------------------------------------------------------------
   mainWindow->setWindowIcon(QIcon(":/Icons/Medium/DesktopIcon.png"));
 
-  QLabel* logoLabel = new QLabel();
-  logoLabel->setObjectName("LogoLabel");
-  logoLabel->setPixmap(qMRMLWidget::pixmapFromIcon(QIcon(":/LogoFull.png")));
-  this->PanelDockWidget->setTitleBarWidget(logoLabel);
+  QWidget* brandHeader = new QWidget();
+  brandHeader->setObjectName("AliceTitleBar");
+  auto* brandLayout = new QHBoxLayout(brandHeader);
+  brandLayout->setContentsMargins(12, 8, 12, 8);
+  brandLayout->setSpacing(10);
+
+  QLabel* brandLabel = new QLabel(qRadianceAppMainWindow::tr("Alice Studio"));
+  brandLabel->setObjectName("AliceBrandLabel");
+  brandLabel->setAlignment(Qt::AlignVCenter | Qt::AlignLeft);
+  brandLabel->setStyleSheet("font-size: 18px; font-weight: 700; color: #152039;");
+
+  QLabel* workflowBadge = new QLabel(qRadianceAppMainWindow::tr("Workflow"));
+  workflowBadge->setObjectName("AliceWorkflowBadge");
+  workflowBadge->setAlignment(Qt::AlignCenter);
+  workflowBadge->setStyleSheet("padding: 2px 12px; border-radius: 12px; background: #5468ff; color: #ffffff; font-size: 11px; font-weight: 600;");
+
+  brandLayout->addWidget(brandLabel);
+  brandLayout->addStretch();
+  brandLayout->addWidget(workflowBadge);
+  brandHeader->setStyleSheet("#AliceTitleBar { background: #f4f6fb; border-bottom: 1px solid #d9deea; }");
+
+  this->PanelDockWidget->setTitleBarWidget(brandHeader);
   this->PanelDockWidget->setWindowTitle(qRadianceAppMainWindow::tr("Workflow"));
-
-  auto hideToolbar = [](QToolBar* toolbar)
-    {
-      if (!toolbar)
-        {
-        return;
-        }
-      toolbar->setVisible(false);
-      toolbar->setEnabled(false);
-    };
-
-  hideToolbar(this->ModuleSelectorToolBar);
-  hideToolbar(this->ModuleToolBar);
-  hideToolbar(this->UndoRedoToolBar);
-  hideToolbar(this->ViewToolBar);
-  hideToolbar(this->ViewersToolBar);
-  hideToolbar(this->MouseModeToolBar);
-  hideToolbar(this->DialogToolBar);
-  hideToolbar(this->LayoutToolBar);
-
-  if (this->DataProbeCollapsibleWidget)
-    {
-    this->DataProbeCollapsibleWidget->setVisible(false);
-    }
 
   if (this->MainToolBar)
     {
     this->MainToolBar->setWindowTitle(qRadianceAppMainWindow::tr("Data I/O"));
     }
+
+  this->applyToolbarBranding();
 
   // Hide the menus
   //this->menubar->setVisible(false);
@@ -196,6 +216,421 @@ qRadianceAppMainWindow::~qRadianceAppMainWindow()
 void qRadianceAppMainWindow::on_HelpAboutRadianceAppAction_triggered()
 {
   qSlicerAboutDialog about(this);
-  about.setLogo(QPixmap(":/Logo.png"));
+  constexpr int brandWidth = 480;
+  constexpr int brandHeight = 180;
+  QPixmap brandPixmap(brandWidth, brandHeight);
+  brandPixmap.fill(Qt::transparent);
+
+  QPainter painter(&brandPixmap);
+  painter.setRenderHint(QPainter::Antialiasing, true);
+
+  const QRectF badgeRect(40, brandHeight / 2.0 - 36.0, brandWidth - 80.0, 72.0);
+  const QColor accentColor("#5468ff");
+  painter.setBrush(accentColor);
+  painter.setPen(Qt::NoPen);
+  painter.drawRoundedRect(badgeRect, 36.0, 36.0);
+
+  painter.setPen(Qt::white);
+  QFont brandFont = painter.font();
+  brandFont.setPointSize(28);
+  brandFont.setBold(true);
+  painter.setFont(brandFont);
+  painter.drawText(badgeRect, Qt::AlignCenter, tr("Alice Studio"));
+  painter.end();
+
+  about.setLogo(brandPixmap);
   about.exec();
+}
+
+//-----------------------------------------------------------------------------
+void qRadianceAppMainWindowPrivate::applyToolbarBranding()
+{
+  const QColor accentColor = this->brandAccentColor();
+
+  auto tintToolbar = [this, accentColor](QToolBar* toolbar, Qt::ToolButtonStyle style, bool applyStyle)
+    {
+    if (!toolbar)
+      {
+      return;
+      }
+
+    toolbar->setIconSize(QSize(28, 28));
+    if (applyStyle)
+      {
+      toolbar->setToolButtonStyle(style);
+      }
+
+    const QIcon moduleFinderIcon = this->createModuleFinderIcon(accentColor);
+
+    for (QAction* action : toolbar->actions())
+      {
+      if (!action || action->isSeparator())
+        {
+        continue;
+        }
+      if (action->objectName() == QStringLiteral("ViewFindModuleAction"))
+        {
+        action->setIcon(moduleFinderIcon);
+        if (!action->property("RadianceFinderBrandingConnected").toBool())
+          {
+          action->setProperty("RadianceFinderBrandingConnected", true);
+          QObject::connect(action, &QAction::triggered, this->q_func(), [this, accentColor]()
+            {
+              QTimer::singleShot(0, this->q_func(), [this, accentColor]()
+                {
+                  this->brandAnyVisibleModuleFinder(accentColor);
+                });
+            });
+          }
+        continue;
+        }
+      const QIcon originalIcon = action->icon();
+      if (originalIcon.isNull())
+        {
+        continue;
+        }
+      action->setIcon(this->createModuleIcon(originalIcon, accentColor));
+      }
+    };
+
+  tintToolbar(this->MainToolBar, Qt::ToolButtonTextUnderIcon, /*applyStyle=*/true);
+  tintToolbar(this->ModuleToolBar, Qt::ToolButtonIconOnly, /*applyStyle=*/false);
+  tintToolbar(this->UndoRedoToolBar, Qt::ToolButtonIconOnly, /*applyStyle=*/false);
+  tintToolbar(this->ViewToolBar, Qt::ToolButtonIconOnly, /*applyStyle=*/false);
+  tintToolbar(this->ViewersToolBar, Qt::ToolButtonIconOnly, /*applyStyle=*/false);
+  tintToolbar(this->MouseModeToolBar, Qt::ToolButtonIconOnly, /*applyStyle=*/false);
+  tintToolbar(this->DialogToolBar, Qt::ToolButtonIconOnly, /*applyStyle=*/false);
+  tintToolbar(this->LayoutToolBar, Qt::ToolButtonIconOnly, /*applyStyle=*/false);
+
+  this->brandModuleSelectorMenu(accentColor);
+  this->brandAllModules(accentColor);
+
+  if (qSlicerApplication* app = qSlicerApplication::application())
+    {
+    if (qSlicerModuleManager* moduleManager = app->moduleManager())
+      {
+      QObject::connect(
+        moduleManager, &qSlicerModuleManager::moduleLoaded,
+        this->q_func(),
+        [this, accentColor](const QString& moduleName)
+          {
+            this->brandModuleByName(moduleName, accentColor);
+            this->brandAnyVisibleModuleFinder(accentColor);
+          });
+      }
+    }
+}
+
+//-----------------------------------------------------------------------------
+QColor qRadianceAppMainWindowPrivate::brandAccentColor() const
+{
+  return QColor("#2f7de0");
+}
+
+//-----------------------------------------------------------------------------
+QIcon qRadianceAppMainWindowPrivate::createModuleIcon(const QIcon& baseIcon, const QColor& accentColor) const
+{
+  if (baseIcon.isNull())
+    {
+    return this->createModuleFinderIcon(accentColor);
+    }
+  return this->createTintedIcon(baseIcon, accentColor);
+}
+
+//-----------------------------------------------------------------------------
+QIcon qRadianceAppMainWindowPrivate::createTintedIcon(const QIcon& source, const QColor& tint) const
+{
+  if (source.isNull())
+    {
+    return source;
+    }
+
+  const QList<QIcon::Mode> modes{QIcon::Normal, QIcon::Active, QIcon::Disabled, QIcon::Selected};
+  const QList<QIcon::State> states{QIcon::Off, QIcon::On};
+  QIcon tintedIcon;
+
+  for (QIcon::Mode mode : modes)
+    {
+    for (QIcon::State state : states)
+      {
+      QList<QSize> sizes = source.availableSizes(mode, state);
+      if (sizes.isEmpty())
+        {
+        sizes << QSize(16, 16) << QSize(24, 24) << QSize(32, 32);
+        }
+
+      for (const QSize& size : std::as_const(sizes))
+        {
+        if (!size.isValid())
+          {
+          continue;
+          }
+
+        QPixmap basePixmap = source.pixmap(size, mode, state);
+        if (basePixmap.isNull())
+          {
+          continue;
+          }
+
+        QPixmap tintedPixmap(size);
+        tintedPixmap.fill(Qt::transparent);
+
+        QPainter painter(&tintedPixmap);
+        painter.drawPixmap(0, 0, basePixmap);
+
+        QColor modeTint = tint;
+        if (mode == QIcon::Disabled)
+          {
+          modeTint.setAlphaF(0.35);
+          modeTint = modeTint.lighter(150);
+          }
+        else
+          {
+          modeTint.setAlphaF(0.85);
+          }
+
+        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        painter.fillRect(tintedPixmap.rect(), modeTint);
+        painter.end();
+
+        tintedIcon.addPixmap(tintedPixmap, mode, state);
+        }
+      }
+    }
+
+  return tintedIcon.isNull() ? source : tintedIcon;
+}
+
+//-----------------------------------------------------------------------------
+void qRadianceAppMainWindowPrivate::brandModuleSelectorMenu(const QColor& accentColor)
+{
+  if (!this->ModuleSelectorToolBar)
+    {
+    return;
+    }
+
+  ctkMenuComboBox* moduleCombo = this->ModuleSelectorToolBar->modulesMenuComboBox();
+  if (!moduleCombo)
+    {
+    return;
+    }
+  moduleCombo->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+
+  auto tintActionIcon = [this, accentColor](QAction* action)
+    {
+      if (!action)
+        {
+        return;
+        }
+      const QString moduleName = action->data().toString();
+      if (!moduleName.isEmpty())
+        {
+        QIcon moduleIcon = this->brandModuleByName(moduleName, accentColor);
+        if (!moduleIcon.isNull())
+          {
+          action->setIcon(moduleIcon);
+          }
+        return;
+        }
+      const QIcon originalIcon = action->icon();
+      if (originalIcon.isNull())
+        {
+        return;
+        }
+      action->setIcon(this->createModuleIcon(originalIcon, accentColor));
+    };
+
+  std::function<void(QMenu*)> tintMenuRecursively;
+  tintMenuRecursively = [&](QMenu* menu)
+    {
+      if (!menu)
+        {
+        return;
+        }
+      const QList<QAction*> actions = menu->actions();
+      for (QAction* action : actions)
+        {
+        tintActionIcon(action);
+        if (QMenu* subMenu = action->menu())
+          {
+          tintMenuRecursively(subMenu);
+          }
+        }
+    };
+
+  tintMenuRecursively(moduleCombo->menu());
+}
+
+//-----------------------------------------------------------------------------
+QIcon qRadianceAppMainWindowPrivate::createModuleFinderIcon(const QColor& accentColor) const
+{
+  const QList<int> baseSizes{16, 20, 24, 28, 32};
+  QIcon icon;
+
+  for (const int size : baseSizes)
+    {
+    QPixmap pixmap(size, size);
+    pixmap.fill(Qt::transparent);
+
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    QPen pen(accentColor);
+    pen.setWidthF(std::max(1.0, size * 0.12));
+    pen.setCapStyle(Qt::RoundCap);
+    pen.setJoinStyle(Qt::RoundJoin);
+    painter.setPen(pen);
+
+    const qreal radius = size * 0.32;
+    const QPointF center(size * 0.4, size * 0.4);
+    painter.drawEllipse(center, radius, radius);
+
+    const QPointF handleStart(size * 0.62, size * 0.62);
+    const QPointF handleEnd(size * 0.82, size * 0.82);
+    painter.drawLine(handleStart, handleEnd);
+    painter.end();
+
+    icon.addPixmap(pixmap);
+    }
+
+  return icon;
+}
+
+//-----------------------------------------------------------------------------
+void qRadianceAppMainWindowPrivate::brandAnyVisibleModuleFinder(const QColor& accentColor)
+{
+  const QWidgetList topLevels = QApplication::topLevelWidgets();
+  for (QWidget* widget : topLevels)
+    {
+    if (auto finderDialog = qobject_cast<qSlicerModuleFinderDialog*>(widget))
+      {
+      this->brandModuleFinderDialog(finderDialog, accentColor);
+      }
+    }
+}
+
+//-----------------------------------------------------------------------------
+void qRadianceAppMainWindowPrivate::brandModuleFinderDialog(qSlicerModuleFinderDialog* dialog, const QColor& accentColor)
+{
+  if (!dialog)
+    {
+    return;
+    }
+
+  qSlicerModulesListView* listView = dialog->findChild<qSlicerModulesListView*>("ModuleListView");
+  if (!listView)
+    {
+    return;
+    }
+
+  this->brandModulesListView(listView, accentColor);
+}
+
+//-----------------------------------------------------------------------------
+void qRadianceAppMainWindowPrivate::brandModulesListView(qSlicerModulesListView* listView, const QColor& accentColor)
+{
+  if (!listView)
+    {
+    return;
+    }
+
+  qSlicerModuleFactoryFilterModel* filterModel = listView->filterModel();
+  if (!filterModel)
+    {
+    return;
+    }
+
+  QStandardItemModel* model = qobject_cast<QStandardItemModel*>(filterModel->sourceModel());
+  if (!model)
+    {
+    return;
+    }
+
+  qSlicerApplication* app = qSlicerApplication::application();
+  if (!app)
+    {
+    return;
+    }
+
+  qSlicerModuleManager* moduleManager = app->moduleManager();
+  if (!moduleManager)
+    {
+    return;
+    }
+
+  for (int row = 0; row < model->rowCount(); ++row)
+    {
+    QStandardItem* item = model->item(row);
+    if (!item)
+      {
+      continue;
+      }
+    const QString moduleName = item->data(qSlicerModuleFactoryFilterModel::ModuleNameRole).toString();
+    if (moduleName.isEmpty())
+      {
+      continue;
+      }
+    QIcon brandedIcon = this->brandModuleByName(moduleName, accentColor);
+    if (brandedIcon.isNull())
+      {
+      continue;
+      }
+    bool block = model->blockSignals(true);
+    item->setIcon(brandedIcon);
+    model->blockSignals(block);
+    }
+}
+
+//-----------------------------------------------------------------------------
+QIcon qRadianceAppMainWindowPrivate::brandModuleByName(const QString& moduleName, const QColor& accentColor)
+{
+  qSlicerApplication* app = qSlicerApplication::application();
+  if (!app)
+    {
+    return QIcon();
+    }
+
+  qSlicerModuleManager* moduleManager = app->moduleManager();
+  if (!moduleManager)
+    {
+    return QIcon();
+    }
+
+  qSlicerAbstractCoreModule* coreModule = moduleManager->module(moduleName);
+  auto module = qobject_cast<qSlicerAbstractModule*>(coreModule);
+  if (!module)
+    {
+    return QIcon();
+    }
+
+  QIcon brandedIcon = this->createModuleIcon(module->icon(), accentColor);
+  if (QAction* moduleAction = module->action())
+    {
+    moduleAction->setIcon(brandedIcon);
+    moduleAction->setIconVisibleInMenu(true);
+    }
+
+  return brandedIcon;
+}
+
+//-----------------------------------------------------------------------------
+void qRadianceAppMainWindowPrivate::brandAllModules(const QColor& accentColor)
+{
+  qSlicerApplication* app = qSlicerApplication::application();
+  if (!app)
+    {
+    return;
+    }
+
+  qSlicerModuleManager* moduleManager = app->moduleManager();
+  if (!moduleManager)
+    {
+    return;
+    }
+
+  const QStringList moduleNames = moduleManager->modulesNames();
+  for (const QString& moduleName : moduleNames)
+    {
+    this->brandModuleByName(moduleName, accentColor);
+    }
 }
