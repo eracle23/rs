@@ -18,7 +18,9 @@ if(NOT DEFINED slicersources_SOURCE_DIR)
     GIT_TAG        c805ba768709f2e469e24af379db0881caac9b25
     GIT_PROGRESS   1
     )
-else()
+endif()
+# Respect externally provided binary dir; otherwise, default to subbuild
+if(NOT DEFINED slicersources_BINARY_DIR)
   set(slicersources_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/slicersources-subbuild)
 endif()
 

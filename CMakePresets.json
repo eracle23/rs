@@ -1,0 +1,112 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "win-ninja-rel",
+      "displayName": "Windows Ninja (Release)",
+      "description": "Ninja + MSVC with sccache; tests OFF; Qt from QT5_DIR env.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../RS-build/win-ninja-rel",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "OFF",
+        "Slicer_BUILD_DOCUMENTATION": "OFF",
+        "Slicer_USE_PYTHONQT": "ON",
+        "Slicer_BUILD_WIN32_CONSOLE": "ON",
+        "CMAKE_NINJA_FORCE_RESPONSE_FILE": "ON",
+        "CMAKE_OBJECT_PATH_MAX": "128",
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "CMAKE_C_COMPILER_LAUNCHER": "sccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "sccache",
+        "Qt5_DIR": "$env{QT5_DIR}"
+      }
+    },
+    {
+      "name": "win-ninja-dev",
+      "displayName": "Windows Ninja (RelWithDebInfo)",
+      "inherits": "win-ninja-rel",
+      "binaryDir": "${sourceDir}/../RS-build/win-ninja-dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "win-ninja-rel-shared",
+      "displayName": "Windows Ninja (Release, shared Slicer)",
+      "inherits": "win-ninja-rel",
+      "cacheVariables": {
+        "slicersources_SOURCE_DIR": "$env{SLICER_SRC_DIR}",
+        "slicersources_BINARY_DIR": "$env{SLICER_BIN_DIR}"
+      }
+    },
+    {
+      "name": "win-ninja-dev-shared",
+      "displayName": "Windows Ninja (RelWithDebInfo, shared Slicer)",
+      "inherits": "win-ninja-dev",
+      "cacheVariables": {
+        "slicersources_SOURCE_DIR": "$env{SLICER_SRC_DIR}",
+        "slicersources_BINARY_DIR": "$env{SLICER_BIN_DIR}"
+      }
+    },
+    {
+      "name": "win-ninja-rel-out",
+      "displayName": "Windows Ninja (Release, out-of-tree)",
+      "inherits": "win-ninja-rel",
+      "binaryDir": "${sourceDir}/../RS-build/win-ninja-rel"
+    },
+    {
+      "name": "win-ninja-dev-out",
+      "displayName": "Windows Ninja (RelWithDebInfo, out-of-tree)",
+      "inherits": "win-ninja-dev",
+      "binaryDir": "${sourceDir}/../RS-build/win-ninja-dev"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-rel",
+      "configurePreset": "win-ninja-rel",
+      "jobs": 0
+    },
+    {
+      "name": "build-dev",
+      "configurePreset": "win-ninja-dev",
+      "jobs": 0
+    },
+    {
+      "name": "build-rel-shared",
+      "configurePreset": "win-ninja-rel-shared",
+      "jobs": 0
+    },
+    {
+      "name": "build-dev-shared",
+      "configurePreset": "win-ninja-dev-shared",
+      "jobs": 0
+    },
+    {
+      "name": "build-rel-out",
+      "configurePreset": "win-ninja-rel-out",
+      "jobs": 0
+    },
+    {
+      "name": "build-dev-out",
+      "configurePreset": "win-ninja-dev-out",
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test-rel",
+      "configurePreset": "win-ninja-rel"
+    },
+    {
+      "name": "test-dev",
+      "configurePreset": "win-ninja-dev"
+    }
+  ]
+}

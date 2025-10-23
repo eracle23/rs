@@ -3,3 +3,7 @@ SlicerCustomAppUtilities/
 build_vs17/
 build_vs17_backup/
 Slicer_build_configure.log
+.vs/
+Tools/tmp_*
+Tools/Invoke-Dump.txt
+CMakeLists.txt.bak

@@ -21,6 +21,11 @@ _This project is in active development and may change from version to version wi
 
 - [Contributing](CONTRIBUTING.md)
 - [Building](BUILD.md)
+- Bootstrap prereqs (admin): `pwsh -ExecutionPolicy Bypass Tools/Bootstrap-Prereqs.ps1 -AutoElevate -InstallChocolatey`
 - Quick build: `pwsh Tools/Invoke-RadianceBuild.ps1 -QtDir C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5`
+- Shared Slicer (one-time): `pwsh Tools/Setup-SharedSlicer.ps1 -SetEnv`
+- Use shared Slicer: `pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-dev -UseSharedSlicer`
+- Set env vars (one-time): `pwsh Tools/Setup-BuildEnv.ps1 -QtCMakeDir C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5`
+- Out-of-tree is default (../RS-build); no flag needed
 
 ![RadianceSuite by Radiance Labs](Applications/RadianceApp/Resources/Images/LogoFull.png?raw=true)
