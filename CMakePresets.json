@@ -20,6 +20,7 @@
         "Slicer_BUILD_WIN32_CONSOLE": "ON",
         "CMAKE_NINJA_FORCE_RESPONSE_FILE": "ON",
         "CMAKE_OBJECT_PATH_MAX": "128",
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "ProgramDatabase",
         "CMAKE_C_COMPILER": "cl.exe",
         "CMAKE_CXX_COMPILER": "cl.exe",
         "CMAKE_C_COMPILER_LAUNCHER": "sccache",
