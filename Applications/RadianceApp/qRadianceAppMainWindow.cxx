@@ -124,23 +124,24 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
     }
   if (this->EditMenu)
     {
-    this->EditMenu->menuAction()->setVisible(false);
+    this->EditMenu->menuAction()->setVisible(true);
     }
   if (this->ViewMenu)
     {
-    this->ViewMenu->menuAction()->setVisible(false);
+    this->ViewMenu->menuAction()->setVisible(true);
     }
   if (this->LayoutMenu)
     {
-    this->LayoutMenu->menuAction()->setVisible(false);
+    this->LayoutMenu->menuAction()->setVisible(true);
     }
   if (this->WindowToolBarsMenu)
     {
-    this->WindowToolBarsMenu->menuAction()->setVisible(false);
+    this->WindowToolBarsMenu->menuAction()->setVisible(true);
     }
   if (this->AppearanceMenu)
     {
-    this->AppearanceMenu->menuAction()->setVisible(false);
+    // Show Appearance menu so users can switch themes (e.g., Dark/Light)
+    this->AppearanceMenu->menuAction()->setVisible(true);
     }
 
   //----------------------------------------------------------------------------
