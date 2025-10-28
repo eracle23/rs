@@ -88,7 +88,8 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Remove unneeded UI elements
         self.modifyWindowUI()
-        self.setCustomUIVisible(True)
+        # Default to showing Slicer UI (menus/toolbars) so users can access Appearance
+        self.setCustomUIVisible(False)
 
         # Apply style
         self.applyApplicationStyle()
