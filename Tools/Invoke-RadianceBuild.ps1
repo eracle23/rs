@@ -247,7 +247,7 @@ if ($libCmd) {
   $cmakeArgFixups += ("-DCMAKE_AR={0}" -f $libCmd.Source)
 }
 
-# Ensure MT and RC are available to CMake
+# Ensure MT and RC are available to CMake and add generator fixups
 $cmakeArgFixups = @()
 if (-not (Test-Command mt.exe)) {
   $mt = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\*\x64\mt.exe' -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
@@ -267,6 +267,13 @@ if (-not (Test-Command rc.exe)) {
     Write-Host "Using rc.exe: $($rc.FullName)" -ForegroundColor Yellow
   }
 }
+
+# Always enable Ninja response files and shorten object paths to avoid Windows command line limits
+$cmakeArgFixups += '-DCMAKE_NINJA_FORCE_RESPONSE_FILE=ON'
+# Respect CMake's minimum value (>=128)
+$cmakeArgFixups += '-DCMAKE_OBJECT_PATH_MAX=128'
+# Prefer PDB debug info to reduce path length pressure
+$cmakeArgFixups += '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase'
 
  # Configure if missing or forced
 $needsConfigure = $ForceConfigure
