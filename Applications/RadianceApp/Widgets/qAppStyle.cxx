@@ -52,31 +52,39 @@ QPalette qAppStyle::standardPalette()const
 {
   QPalette palette = this->Superclass::standardPalette();
 
-  palette.setColor(QPalette::Active, QPalette::Window, "#eaebee");
-  palette.setColor(QPalette::Inactive, QPalette::Window, "#eaebee");
-  palette.setColor(QPalette::Disabled, QPalette::Window, "#dedfe1");
-  palette.setColor(QPalette::Active, QPalette::WindowText, "#002f4f");
-  palette.setColor(QPalette::Inactive, QPalette::WindowText, "#002f4f");
-  palette.setColor(QPalette::Disabled, QPalette::WindowText, "#2a404f");
-  palette.setColor(QPalette::Active, QPalette::Text, "#002f4f");
-  palette.setColor(QPalette::Inactive, QPalette::Text, "#002f4f");
-  palette.setColor(QPalette::Disabled, QPalette::Text, "#2a404f");
-  palette.setColor(QPalette::Active, QPalette::Base, "#ffffff");
-  palette.setColor(QPalette::Inactive, QPalette::Base, "#ffffff");
-  palette.setColor(QPalette::Disabled, QPalette::Base, "#eaebee");
+  // Respect the current theme: if the base palette is dark, keep it as-is.
+  const QColor bg = palette.color(QPalette::Window);
+  const QColor fg = palette.color(QPalette::WindowText);
+  const bool isDarkTheme = bg.lightnessF() < fg.lightnessF();
 
+  if (!isDarkTheme)
+    {
+    // Apply Radiance light palette overrides only for light theme
+    palette.setColor(QPalette::Active, QPalette::Window, "#eaebee");
+    palette.setColor(QPalette::Inactive, QPalette::Window, "#eaebee");
+    palette.setColor(QPalette::Disabled, QPalette::Window, "#dedfe1");
+    palette.setColor(QPalette::Active, QPalette::WindowText, "#002f4f");
+    palette.setColor(QPalette::Inactive, QPalette::WindowText, "#002f4f");
+    palette.setColor(QPalette::Disabled, QPalette::WindowText, "#2a404f");
+    palette.setColor(QPalette::Active, QPalette::Text, "#002f4f");
+    palette.setColor(QPalette::Inactive, QPalette::Text, "#002f4f");
+    palette.setColor(QPalette::Disabled, QPalette::Text, "#2a404f");
+    palette.setColor(QPalette::Active, QPalette::Base, "#ffffff");
+    palette.setColor(QPalette::Inactive, QPalette::Base, "#ffffff");
+    palette.setColor(QPalette::Disabled, QPalette::Base, "#eaebee");
 
-  palette.setColor(QPalette::Light, "#ffffff");
-  palette.setColor(QPalette::Button, "#dedfe1");
-  palette.setColor(QPalette::Mid, "#005f9e");
-  palette.setColor(QPalette::Dark, "#005f9e");
-  palette.setColor(QPalette::Active, QPalette::ButtonText, "#005f9e");
-  palette.setColor(QPalette::Inactive, QPalette::ButtonText, "#005f9e");
-  palette.setColor(QPalette::Disabled, QPalette::ButtonText, "#003050");
-  palette.setColor(QPalette::Shadow, "#002f4f");
+    palette.setColor(QPalette::Light, "#ffffff");
+    palette.setColor(QPalette::Button, "#dedfe1");
+    palette.setColor(QPalette::Mid, "#005f9e");
+    palette.setColor(QPalette::Dark, "#005f9e");
+    palette.setColor(QPalette::Active, QPalette::ButtonText, "#005f9e");
+    palette.setColor(QPalette::Inactive, QPalette::ButtonText, "#005f9e");
+    palette.setColor(QPalette::Disabled, QPalette::ButtonText, "#003050");
+    palette.setColor(QPalette::Shadow, "#002f4f");
 
-  palette.setColor(QPalette::Highlight, "#009d49");
-  palette.setColor(QPalette::HighlightedText, "#ffffff");
+    palette.setColor(QPalette::Highlight, "#009d49");
+    palette.setColor(QPalette::HighlightedText, "#ffffff");
+    }
 
   return palette;
 }
