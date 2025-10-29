@@ -10,6 +10,9 @@ param(
 
   [switch]$ForceConfigure,
 
+  # Configure only: run CMake configure step and exit without building
+  [switch]$ConfigureOnly,
+
   [string[]]$ExtraCMakeArgs,
 
   [switch]$UseSharedSlicer,
@@ -47,6 +50,53 @@ function Import-VSDevEnvironment {
       }
     }
   } catch {}
+}
+
+# Proactively import VS developer environment so cl/link/SDK are available in plain PowerShell
+Import-VSDevEnvironment
+
+function Ensure-WindowsSdkLibInclude {
+  try {
+    $sdkRoot = 'C:\Program Files (x86)\Windows Kits\10'
+    if (-not (Test-Path $sdkRoot)) { return $false }
+    $libRoot = Join-Path $sdkRoot 'Lib'
+    $incRoot = Join-Path $sdkRoot 'Include'
+    if (-not (Test-Path $libRoot) -or -not (Test-Path $incRoot)) { return $false }
+    $ver = (Get-ChildItem $libRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1).Name
+    if (-not $ver) { return $false }
+    $umLib  = Join-Path $libRoot  (Join-Path $ver 'um\x64')
+    $ucrtLib= Join-Path $libRoot  (Join-Path $ver 'ucrt\x64')
+    $umInc  = Join-Path $incRoot  (Join-Path $ver 'um')
+    $ucrtInc= Join-Path $incRoot  (Join-Path $ver 'ucrt')
+    $sharedInc = Join-Path $incRoot (Join-Path $ver 'shared')
+    $winrtInc  = Join-Path $incRoot (Join-Path $ver 'winrt')
+    $added = $false
+    if (Test-Path $umLib -and ($env:LIB -notmatch [regex]::Escape($umLib))) { $env:LIB = "$umLib;" + $env:LIB; $added = $true }
+    if (Test-Path $ucrtLib -and ($env:LIB -notmatch [regex]::Escape($ucrtLib))) { $env:LIB = "$ucrtLib;" + $env:LIB; $added = $true }
+    foreach ($inc in @($umInc,$ucrtInc,$sharedInc,$winrtInc)) {
+      if ($inc -and (Test-Path $inc) -and ($env:INCLUDE -notmatch [regex]::Escape($inc))) {
+        $env:INCLUDE = "$inc;" + $env:INCLUDE; $added = $true
+      }
+    }
+    if ($added) { Write-Host "Ensured Windows SDK LIB/INCLUDE paths (v$ver)." -ForegroundColor Yellow }
+    return $added
+  } catch { return $false }
+}
+
+function Ensure-MsvcVcLibInclude {
+  try {
+    $msvcRoot = 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC'
+    if (-not (Test-Path $msvcRoot)) { return $false }
+    $latest = Get-ChildItem $msvcRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+    if (-not $latest) { return $false }
+    $vcInc = Join-Path $latest.FullName 'include'
+    $vcLib = Join-Path $latest.FullName 'lib\\x64'
+    $added = $false
+    if ((Test-Path $vcInc) -and ($env:INCLUDE -notmatch [regex]::Escape($vcInc))) { $env:INCLUDE = "$vcInc;" + $env:INCLUDE; $added = $true }
+    if ((Test-Path $vcLib) -and ($env:LIB -notmatch [regex]::Escape($vcLib))) { $env:LIB = "$vcLib;" + $env:LIB; $added = $true }
+    if ($added) { Write-Host "Ensured MSVC VC include/lib paths." -ForegroundColor Yellow }
+    return $added
+  } catch { return $false }
 }
 
 function Get-FreeDriveLetter([string[]]$Preferred) {
@@ -123,6 +173,70 @@ function Ensure-PythonLibAliases {
     }
   }
   return $changed
+}
+
+function Ensure-TeemQnanhibitPatched {
+  param([string]$SlicerBinDir)
+  if (-not $SlicerBinDir) { return $false }
+  $teemSrc = Join-Path $SlicerBinDir 'teem-prefix\src\teem'
+  $target = Join-Path $teemSrc 'CMake\TestQnanhibit.cmake'
+  $patch = Join-Path $PSScriptRoot 'Patches\Teem\TestQnanhibit.cmake'
+  if (-not (Test-Path $target)) { return $false }
+  try {
+    $content = Get-Content -Path $target -Raw -ErrorAction Stop
+    if ($content -match 'Assume QNaNHiBit==1' -or $content -match 'probe skipped') {
+      return $false
+    }
+    if (-not (Test-Path $patch)) { return $false }
+    $bak = $target + '.bak'
+    Copy-Item -Path $target -Destination $bak -Force -ErrorAction SilentlyContinue | Out-Null
+    Copy-Item -Path $patch -Destination $target -Force
+    Write-Host "Patched Teem QNaN probe: $target" -ForegroundColor Yellow
+    return $true
+  } catch {
+    return $false
+  }
+}
+
+function Clean-TeemInitialCaches {
+  param([string]$SlicerBinDir)
+  if (-not $SlicerBinDir) { return $false }
+  $tmpDir = Join-Path $SlicerBinDir 'teem-prefix\tmp'
+  if (-not (Test-Path $tmpDir)) { return $false }
+  $changed = $false
+  Get-ChildItem -Path $tmpDir -Filter 'teem-cache-*.cmake' -ErrorAction SilentlyContinue |
+    ForEach-Object {
+      try { Remove-Item -Path $_.FullName -Force; $changed = $true; Write-Host "Removed stale Teem cache: $($_.FullName)" -ForegroundColor Yellow } catch {}
+    }
+  return $changed
+}
+
+function Ensure-SharedSlicerConfigured {
+  param(
+    [string]$SlicerSrcDir,
+    [string]$SlicerBinDir
+  )
+  if (-not $SlicerSrcDir -or -not $SlicerBinDir) { return $false }
+  if (-not (Test-Path $SlicerSrcDir)) { return $false }
+  if (-not (Test-Path $SlicerBinDir)) { New-Item -ItemType Directory -Force -Path $SlicerBinDir | Out-Null }
+  $need = $false
+  $bn = Join-Path $SlicerBinDir 'build.ninja'
+  $rn = Join-Path $SlicerBinDir 'CMakeFiles/rules.ninja'
+  if (-not (Test-Path $bn) -or -not (Test-Path $rn)) { $need = $true }
+  if (-not $need) { return $false }
+  Write-Host "Configuring shared Slicer in $SlicerBinDir ..." -ForegroundColor Yellow
+  $args = @('-GNinja','-S', $SlicerSrcDir, '-B', $SlicerBinDir,
+    '-DCMAKE_NINJA_FORCE_RESPONSE_FILE=ON',
+    '-DCMAKE_OBJECT_PATH_MAX=128',
+    '-DMSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase',
+    # Stabilize HDF5/VTK checks on Windows
+    '-DVTK_MODULE_ENABLE_VTK_IOHDF5=NO',
+    '-DHDF5_ENABLE_LDOUBLE=OFF',
+    '-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY',
+    '-DCMAKE_C_FLAGS=/D_CRT_DECLARE_NONSTDC_NAMES=1',
+    '-DCMAKE_CXX_FLAGS=/D_CRT_DECLARE_NONSTDC_NAMES=1')
+  cmake @args | Write-Host
+  return $true
 }
 
 function Sanitize-UpstreamQtCache {
@@ -222,6 +336,10 @@ if (-not (Test-Command cl.exe)) {
     }
   }
 }
+[void](Ensure-WindowsSdkLibInclude)
+
+# Ensure VC++ STL include/lib paths available when VS dev env is not imported
+[void](Ensure-MsvcVcLibInclude)
 
 # Ensure MSVC link tools preferred over MinGW/Strawberry
 $env:PATH = (@($env:PATH -split ';') | Where-Object { $_ -and ($_ -notmatch 'Strawberry\\c\\bin') -and ($_ -notmatch 'MinGW') }) -join ';'
@@ -309,6 +427,10 @@ if ($UseSharedSlicer) {
   # Normalize to forward slashes for CMake
   if ($env:SLICER_SRC_DIR) { $env:SLICER_SRC_DIR = $env:SLICER_SRC_DIR -replace "\\","/" }
   if ($env:SLICER_BIN_DIR) { $env:SLICER_BIN_DIR = $env:SLICER_BIN_DIR -replace "\\","/" }
+  # Ensure shared Slicer has a configured build system if missing
+  if ($env:SLICER_SRC_DIR -and $env:SLICER_BIN_DIR) {
+    [void](Ensure-SharedSlicerConfigured -SlicerSrcDir $env:SLICER_SRC_DIR -SlicerBinDir $env:SLICER_BIN_DIR)
+  }
 }
 
 # Determine final buildDir (defaults are out-of-tree)
@@ -323,6 +445,12 @@ switch ($effectivePreset) {
 }
 if (-not (Test-Path $buildDir)) { $needsConfigure = $true }
 elseif (-not (Test-Path (Join-Path $buildDir 'CMakeCache.txt'))) { $needsConfigure = $true }
+else {
+  # If generator files look incomplete, force re-configure
+  $buildNinja = Join-Path $buildDir 'build.ninja'
+  $rulesNinja = Join-Path $buildDir 'CMakeFiles/rules.ninja'
+  if (-not (Test-Path $buildNinja) -or -not (Test-Path $rulesNinja)) { $needsConfigure = $true }
+}
 
 if ($needsConfigure) {
   Write-Host "Configuring with preset '$effectivePreset'..." -ForegroundColor Green
@@ -334,6 +462,12 @@ if ($needsConfigure) {
   cmake @cfgArgs | Write-Host
 } else {
   Write-Host "Configure step skipped (use -ForceConfigure to reconfigure)."
+}
+
+# Honor ConfigureOnly: skip any build/package/fallback logic
+if ($ConfigureOnly) {
+  Write-Host "ConfigureOnly specified: skipping build steps." -ForegroundColor Yellow
+  return
 }
 
 # Build using build preset (align with shared/out variants)
@@ -352,6 +486,14 @@ Write-Host "Building with preset '$buildPreset' (Jobs=$Jobs) ..." -ForegroundCol
 [void](Ensure-PythonLibAliases -RootBuildDir $buildDir)
 # Proactively sanitize upstream VTK cache to avoid backslash escapes in Qt5_DIR
 if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { [void](Sanitize-UpstreamQtCache -SlicerBinDir $env:SLICER_BIN_DIR) }
+# If shared Slicer already fetched ExternalProject sources, proactively patch Teem probe
+if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) {
+  $patched = Ensure-TeemQnanhibitPatched -SlicerBinDir $env:SLICER_BIN_DIR
+  if ($patched) {
+    # remove stale initial caches to force re-configure with patched macro
+    [void](Clean-TeemInitialCaches -SlicerBinDir $env:SLICER_BIN_DIR)
+  }
+}
 if ($Jobs -gt 0) {
   cmake --build --preset $buildPreset -- -j $Jobs | Write-Host
 } else {
@@ -362,13 +504,23 @@ if ($LASTEXITCODE -ne 0) {
   # Attempt remediation for python3.lib and Qt backslash path, then retry once
   $fixed = Ensure-PythonLibAliases -RootBuildDir $buildDir
   if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { $fixed = (Sanitize-UpstreamQtCache -SlicerBinDir $env:SLICER_BIN_DIR) -or $fixed }
-  # If still failing, try short-drive Slicer build to avoid rsp/path issues
-  if (-not $fixed -and $AutoShortDriveSlicer) {
-    $slicerBuildDir = Join-Path $buildDir 'Slicer-build'
-    if (Test-Path $slicerBuildDir) {
-      $shortOk = Invoke-SlicerShortDriveBuild -SlicerBuildDir $slicerBuildDir -Jobs $Jobs -PreferredLetter $ShortDriveLetter -KeepMapping:$KeepShortDriveMapping
-      if ($shortOk) { $fixed = $true }
+  # If using shared Slicer, prefer building there on short path instead of local Slicer-build
+  $slicerBuildDir = $null
+  if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { $slicerBuildDir = $env:SLICER_BIN_DIR } else { $slicerBuildDir = Join-Path $buildDir 'Slicer-build' }
+  # If Teem QNaN probe present, patch it and try building Teem target first
+  if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) {
+    $didPatch = Ensure-TeemQnanhibitPatched -SlicerBinDir $env:SLICER_BIN_DIR
+    if ($didPatch) {
+      [void](Clean-TeemInitialCaches -SlicerBinDir $env:SLICER_BIN_DIR)
+      Write-Host "Rebuilding 'teem' external after patch..." -ForegroundColor Yellow
+      if (Test-Path $env:SLICER_BIN_DIR) { cmake --build $env:SLICER_BIN_DIR --target teem -j 1 | Write-Host }
+      if ($LASTEXITCODE -eq 0) { $fixed = $true }
     }
+  }
+  # If still failing, try short-drive Slicer build to avoid rsp/path issues
+  if (-not $fixed -and $AutoShortDriveSlicer -and $slicerBuildDir -and (Test-Path $slicerBuildDir)) {
+    $shortOk = Invoke-SlicerShortDriveBuild -SlicerBuildDir $slicerBuildDir -Jobs $Jobs -PreferredLetter $ShortDriveLetter -KeepMapping:$KeepShortDriveMapping
+    if ($shortOk) { $fixed = $true }
   }
   if ($fixed) {
     Write-Host "Retrying build after applying remediation..." -ForegroundColor Yellow
