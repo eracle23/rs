@@ -50,8 +50,9 @@ set(Slicer_EXTENSIONS_DIRBASENAME "AliceExtensions" CACHE STRING "Extensions dir
 if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
   message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")
 endif()
-set(Slicer_DEFAULT_HOME_MODULE "Home")
-set(Slicer_DEFAULT_FAVORITE_MODULES "Home, Data, SegmentEditor, VolumeRendering, Transforms")
+set(Slicer_DEFAULT_HOME_MODULE "Welcome")
+# 去掉自定义 Home 模块后，更新常用模块列表（不再包含 Home）
+set(Slicer_DEFAULT_FAVORITE_MODULES "Data, SegmentEditor, VolumeRendering, Transforms")
 
 # Configure SuperBuild
 set(SUPERBUILD_TOPLEVEL_PROJECT Slicer)
@@ -136,15 +137,15 @@ set(Slicer_QTSCRIPTEDMODULES_ENABLED
 set(Slicer_CLIMODULES_DISABLED
   )
 set(Slicer_QTLOADABLEMODULES_DISABLED)
+# 启用内置 Welcome 模块，作为默认 Home 模块
 set(Slicer_QTSCRIPTEDMODULES_DISABLED
-  SlicerWelcome
   )
 
 # Enable/Disable Slicer custom modules: To create a new module, use the SlicerExtensionWizard.
 set(Slicer_EXTENSION_SOURCE_DIRS
   #${CMAKE_CURRENT_SOURCE_DIR}/Modules/CLI/MyCLIModule
   #${CMAKE_CURRENT_SOURCE_DIR}/Modules/Loadable/MyLoadableModule
-  ${CMAKE_CURRENT_SOURCE_DIR}/Modules/Scripted/Home
+  # Removed Home scripted module to rely on Welcome + custom layout only
   )
 
 # Add remote extension source directories

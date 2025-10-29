@@ -21,6 +21,7 @@
 
 // Qt includes
 #include <QAction>
+#include <QActionGroup>
 #include <QApplication>
 #include <QColor>
 #include <QDesktopServices>
@@ -39,6 +40,13 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QUrl>
+#include <QStyle>
+#include <QStyleFactory>
+#include <QSettings>
+#include <QFile>
+#include <QTextBrowser>
+#include <QTextEdit>
+#include <QComboBox>
 #include <algorithm>
 #include <functional>
 #include <utility>
@@ -53,10 +61,16 @@
 #include "qSlicerModuleManager.h"
 #include "qSlicerModuleSelectorToolBar.h"
 #include "qSlicerModulesListView.h"
+#include "qSlicerLayoutManager.h"
+#include <vtkMRMLLayoutLogic.h>
+#include <vtkMRMLLayoutNode.h>
+#include "qSlicerSettingsStylesPanel.h"
+#include "qSlicerAbstractModuleWidget.h"
 #include <qMRMLWidget.h>
 
 // CTK includes
 #include <ctkMenuComboBox.h>
+#include <ctkSettingsDialog.h>
 //-----------------------------------------------------------------------------
 // qRadianceAppMainWindowPrivate methods
 
@@ -144,6 +158,8 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
     this->AppearanceMenu->menuAction()->setVisible(true);
     }
 
+  // 保持上游设置面板行为与命名，不做品牌重命名，简化设计。
+
   //----------------------------------------------------------------------------
   // Configure
   //----------------------------------------------------------------------------
@@ -158,17 +174,17 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   QLabel* brandLabel = new QLabel(qRadianceAppMainWindow::tr("Alice Studio"));
   brandLabel->setObjectName("AliceBrandLabel");
   brandLabel->setAlignment(Qt::AlignVCenter | Qt::AlignLeft);
-  brandLabel->setStyleSheet("font-size: 18px; font-weight: 700; color: #152039;");
+  brandLabel->setStyleSheet("font-size: 18px; font-weight: 700; color: palette(windowText);");
 
   QLabel* workflowBadge = new QLabel(qRadianceAppMainWindow::tr("Workflow"));
   workflowBadge->setObjectName("AliceWorkflowBadge");
   workflowBadge->setAlignment(Qt::AlignCenter);
-  workflowBadge->setStyleSheet("padding: 2px 12px; border-radius: 12px; background: #5468ff; color: #ffffff; font-size: 11px; font-weight: 600;");
+  workflowBadge->setStyleSheet("padding: 2px 12px; border-radius: 12px; background: palette(highlight); color: palette(highlightedText); font-size: 11px; font-weight: 600;");
 
   brandLayout->addWidget(brandLabel);
   brandLayout->addStretch();
   brandLayout->addWidget(workflowBadge);
-  brandHeader->setStyleSheet("#AliceTitleBar { background: #f4f6fb; border-bottom: 1px solid #d9deea; }");
+  brandHeader->setStyleSheet("#AliceTitleBar { background: palette(window); border-bottom: 1px solid palette(mid); }");
 
   this->PanelDockWidget->setTitleBarWidget(brandHeader);
   this->PanelDockWidget->setWindowTitle(qRadianceAppMainWindow::tr("Workflow"));
@@ -180,6 +196,10 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
 
   this->applyToolbarBranding();
 
+  // 布局注册与默认模块交由 DefaultSettings.ini 与 Slicer 机制处理。
+
+  // 保持 Welcome 文案为上游默认，不在运行时替换，减少耦合。
+
   // Hide the menus
   //this->menubar->setVisible(false);
   //this->FileMenu->setVisible(false);
@@ -187,6 +207,8 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   //this->ViewMenu->setVisible(false);
   //this->LayoutMenu->setVisible(false);
   //this->HelpMenu->setVisible(false);
+
+  // 不追加全局样式，让 3D 控制条背景交由主题样式处理。
 }
 
 //-----------------------------------------------------------------------------
@@ -634,4 +656,14 @@ void qRadianceAppMainWindowPrivate::brandAllModules(const QColor& accentColor)
     {
     this->brandModuleByName(moduleName, accentColor);
     }
+}
+
+//-----------------------------------------------------------------------------
+void qRadianceAppMainWindow::setHomeModuleCurrent()
+{
+  Q_D(qRadianceAppMainWindow);
+  if (d->ModuleSelectorToolBar)
+  {
+    d->ModuleSelectorToolBar->selectModule(QStringLiteral("Welcome"));
+  }
 }

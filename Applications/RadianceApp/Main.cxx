@@ -33,6 +33,10 @@
 #include <QRectF>
 #include <QVariant>
 #include <QMetaType>
+// Theme/Settings
+#include <QSettings>
+#include <QStyle>
+#include <QStyleFactory>
 
 Q_DECLARE_METATYPE(QPixmap)
 
@@ -105,6 +109,9 @@ int SlicerAppMain(int argc, char* argv[])
     {
     return app.returnCode();
     }
+
+  // 默认配置通过资源文件 DefaultSettings.ini 提供（Styles/Style、Modules/HomeModule）。
+  // 此处不额外覆写用户偏好，保持简洁设计。
 
   qRegisterMetaType<QPixmap>("QPixmap");
   QScopedPointer<SlicerMainWindowType> window;
