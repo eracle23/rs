@@ -12,7 +12,6 @@ set(MODULE_PYTHON_RESOURCES
   Resources/Layouts/RadianceWorkspace.xml
   Resources/UI/${MODULE_NAME}.ui
   Resources/UI/Settings.ui
-  Resources/Home.qss
   )
 
 slicerFunctionAddPythonQtResources(MODULE_PYTHON_QRC_RESOURCES

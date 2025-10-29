@@ -24,20 +24,11 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="0">
-    <widget class="QCheckBox" name="CustomStyleCheckBox">
-     <property name="text">
-      <string>Use custom QSS</string>
-     </property>
-     <property name="checked">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
+   <!-- Removed: CustomStyleCheckBox (use custom QSS) to keep design minimal -->
    <item row="0" column="0">
     <widget class="QCheckBox" name="CustomUICheckBox">
      <property name="text">
-      <string>Hide Slicer Interface</string>
+      <string>Hide Alice Interface</string>
      </property>
      <property name="checked">
       <bool>false</bool>

@@ -4,7 +4,6 @@ from typing import Optional
 import qt
 import slicer
 import vtk
-import SlicerCustomAppUtilities
 from slicer.ScriptedLoadableModule import (
     ScriptedLoadableModule,
     ScriptedLoadableModuleLogic,
@@ -76,9 +75,7 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         layoutModifiedEvent = getattr(slicer.vtkMRMLLayoutNode, "LayoutModifiedEvent", vtk.vtkCommand.ModifiedEvent)
         self.addObserver(self._layoutNode, layoutModifiedEvent, self.onLayoutChanged)
 
-        # Dark palette does not propagate on its own
-        # See https://github.com/KitwareMedical/SlicerCustomAppTemplate/issues/72
-        self.uiWidget.setPalette(slicer.util.mainWindow().style().standardPalette())
+        # 避免固定设置局部调色板，以便主题切换时自动继承应用调色板
 
         self._decorateHomeCards()
         self._configureButtons()
@@ -91,13 +88,14 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         # Default to showing Slicer UI (menus/toolbars) so users can access Appearance
         self.setCustomUIVisible(False)
 
-        # Apply style
-        self.applyApplicationStyle()
+        # 纯跟随系统主题：不安装事件过滤，不应用任何模块样式
         self.onLayoutChanged()
 
     def cleanup(self):
         """Called when the application closes and the module widget is destroyed."""
         self.removeObservers()
+
+    # 不使用事件过滤；完全依赖全局主题的调色板
 
     def setSlicerUIVisible(self, visible: bool):
         exemptToolbars = [
@@ -228,14 +226,9 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         self.settingsDialog = slicer.util.loadUI(self.resourcePath("UI/Settings.ui"))
         self.settingsUI = slicer.util.childWidgetVariables(self.settingsDialog)
         self.settingsUI.CustomUICheckBox.toggled.connect(self.setCustomUIVisible)
-        self.settingsUI.CustomStyleCheckBox.toggled.connect(self.toggleStyle)
         self.settingsAction.triggered.connect(self.raiseSettings)
 
-    def toggleStyle(self, visible: bool):
-        if visible:
-            self.applyApplicationStyle()
-        else:
-            slicer.app.styleSheet = ""
+    # 移除自定义样式切换，保持最简：始终跟随全局主题
 
     def raiseSettings(self, _):
         self.settingsDialog.exec()
@@ -243,9 +236,7 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def setCustomUIVisible(self, visible: bool):
         self.setSlicerUIVisible(not visible)
 
-    def applyApplicationStyle(self):
-        SlicerCustomAppUtilities.applyStyle([slicer.app], self.resourcePath("Home.qss"))
-        self._polish(self.uiWidget)
+    # 不再应用模块级 QSS
 
     def _polish(self, widget: qt.QWidget):
         widget.style().unpolish(widget)
