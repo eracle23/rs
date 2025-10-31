@@ -7,3 +7,10 @@ Slicer_build_configure.log
 Tools/tmp_*
 Tools/Invoke-Dump.txt
 CMakeLists.txt.bak
+ 
+# Build and package logs
+*.log
+
+# Backup files
+*.bak
+*.bak-*
