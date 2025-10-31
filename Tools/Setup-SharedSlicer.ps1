@@ -17,7 +17,7 @@ param(
   [string]$SrcDir = 'C:\W\Slicer',
   [string]$BinDir = 'C:\W\Slicer-build',
   [string]$GitUrl = 'https://github.com/Slicer/Slicer',
-  [string]$Commit = 'c805ba768709f2e469e24af379db0881caac9b25',
+  [string]$Commit = 'v5.8.1',
   [switch]$SetEnv
 )
 

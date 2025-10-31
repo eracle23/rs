@@ -23,7 +23,17 @@ param(
 
   [string]$ShortDriveLetter = 'R',
 
-  [switch]$KeepShortDriveMapping
+  [switch]$KeepShortDriveMapping,
+
+  # Optional: Override build root directory (defaults to ..\\..\\RS-build via presets)
+  # Example: -BuildRoot C:/RS-build2 (actual binary dir becomes C:/RS-build2/win-ninja-dev or rel)
+  [string]$BuildRoot,
+
+  # Retry failed builds (helps with flaky network fetch of externals)
+  [int]$BuildRetries = 5,
+
+  # Enable Windows long path support (requires reboot to fully take effect)
+  [switch]$EnableLongPaths
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,6 +41,14 @@ $ErrorActionPreference = 'Stop'
 function Test-Command {
   param([string]$Name)
   return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
+}
+
+function Get-NinjaVersion {
+  try {
+    $ver = ninja --version 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $ver) { return $null }
+    return $ver.Trim()
+  } catch { return $null }
 }
 
 function Import-VSDevEnvironment {
@@ -54,6 +72,33 @@ function Import-VSDevEnvironment {
 
 # Proactively import VS developer environment so cl/link/SDK are available in plain PowerShell
 Import-VSDevEnvironment
+
+# Ensure preferred CMake version (3.27.x) is used if available
+function Get-CMakeVersion([string]$Exe){ try { & $Exe --version | Select-Object -First 1 } catch { return $null } }
+function Ensure-PreferredCMake {
+  # If current cmake isn't 3.27.x, try to prepend a 3.27 install to PATH
+  $cur = (Get-Command cmake -ErrorAction SilentlyContinue)
+  $curLine = if($cur){ Get-CMakeVersion -Exe $cur.Source } else { $null }
+  $ok = ($curLine -match '^cmake\s+version\s+3\.27\.')
+  if ($ok) { Write-Host "Using CMake: $($cur.Source) [$($curLine)]" -ForegroundColor Yellow; return }
+  $candidates = @()
+  $candidates += 'C:\\Program Files\\CMake\\bin\\cmake.exe'
+  $candidates += 'C:\\ProgramData\\chocolatey\\lib\\cmake\\tools\\**\\bin\\cmake.exe'
+  foreach($cand in $candidates){
+    $paths = Get-ChildItem -Path $cand -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+    foreach($p in $paths){
+      $line = Get-CMakeVersion -Exe $p
+      if ($line -and ($line -match '^cmake\s+version\s+3\.27\.')){
+        $dir = Split-Path $p -Parent
+        $env:PATH = "$dir;" + $env:PATH
+        Write-Host "Preferring CMake 3.27.x: $p [$line]" -ForegroundColor Yellow
+        return
+      }
+    }
+  }
+  if ($cur){ Write-Host "Using CMake: $($cur.Source) [$curLine]" -ForegroundColor Yellow }
+}
+Ensure-PreferredCMake
 
 function Ensure-WindowsSdkLibInclude {
   try {
@@ -253,9 +298,11 @@ function Sanitize-UpstreamQtCache {
       $localChanged = $false
       $hasForceRsp = $false
       $hasObjMax = $false
+      $hasPolicyMin = $false
       foreach ($ln in $lines) {
         if ($ln -match '^\s*set\(\s*CMAKE_NINJA_FORCE_RESPONSE_FILE\s*"?ON"?\s*\)') { $hasForceRsp = $true }
         if ($ln -match '^\s*set\(\s*CMAKE_OBJECT_PATH_MAX\s*"?\d+"?\s*\)') { $hasObjMax = $true }
+        if ($ln -match '^\s*set\(\s*CMAKE_POLICY_VERSION_MINIMUM\s*"?') { $hasPolicyMin = $true }
         if ($ln -match '^\s*set\(\s*Qt5_DIR\s*"([^"]+)"') {
           $parts = $ln -split '"',3
           if ($parts.Count -ge 3) {
@@ -276,6 +323,10 @@ function Sanitize-UpstreamQtCache {
         $out += 'set(CMAKE_OBJECT_PATH_MAX "128")'
         $localChanged = $true
       }
+      if (-not $hasPolicyMin) {
+        $out += 'set(CMAKE_POLICY_VERSION_MINIMUM "3.5")'
+        $localChanged = $true
+      }
       if ($localChanged) {
         Set-Content -Path $f.FullName -Value $out -Encoding UTF8
         Write-Host "Sanitized cache: $($f.FullName)" -ForegroundColor Yellow
@@ -284,6 +335,138 @@ function Sanitize-UpstreamQtCache {
     } catch {}
   }
   return $changed
+}
+
+# Parse -D style CMake definitions from ExtraCMakeArgs into a hashtable
+function Get-ExtraDefsMap {
+  param([string[]]$Args)
+  $map = @{}
+  if (-not $Args) { return $map }
+  foreach($a in $Args){
+    if ($a -match '^-D([^=]+)=(.*)$'){
+      $k=$matches[1]; $v=$matches[2]
+      # strip surrounding quotes if present
+      if ($v -match '^"(.*)"$'){ $v=$matches[1] }
+      $map[$k]=$v
+    }
+  }
+  return $map
+}
+
+# Ensure selected -D defs exist in ExternalProject initial cache files under *-prefix/tmp
+function Apply-DefsToInitialCaches {
+  param(
+    [string]$RootDir,
+    [hashtable]$Defs
+  )
+  if (-not $RootDir -or -not (Test-Path $RootDir) -or -not $Defs -or $Defs.Count -eq 0) { return $false }
+  $changed=$false
+  $files = Get-ChildItem -Path $RootDir -Recurse -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match '\\-prefix\\tmp\\' -and $_.Name -like '*cache-*.cmake' }
+  foreach($f in $files){
+    try{
+      $lines = Get-Content -Path $f.FullName -ErrorAction Stop
+      $out=@()
+      $localChanged=$false
+      foreach($line in $lines){ $out += $line }
+      foreach($key in $Defs.Keys){
+        $val=$Defs[$key]
+        $pattern = '^\s*set\(\s*' + [regex]::Escape($key) + '\s*"?'
+        $existing = $out | Where-Object { $_ -match $pattern }
+        # Write as CACHE entry with FORCE to ensure it takes effect when used via -C initial cache
+        $defLine = ('set({0} "{1}" CACHE STRING "Initial cache" FORCE)' -f $key, ($val -replace '\\','/'))
+        if ($existing){
+          # Replace first occurrence, keep rest
+          for($i=0;$i -lt $out.Count;$i++){
+            if ($out[$i] -match $pattern){ $out[$i]=$defLine; $localChanged=$true; break }
+          }
+        } else {
+          $out += $defLine
+          $localChanged=$true
+        }
+      }
+      if ($localChanged){ Set-Content -Path $f.FullName -Value $out -Encoding UTF8; Write-Host "Applied defs to: $($f.FullName)" -ForegroundColor Yellow; $changed=$true }
+    } catch {}
+  }
+  return $changed
+}
+
+# Ensure inner Slicer-build uses Ninja response files to avoid long command lines on Windows
+function Ensure-SlicerBuildResponseFiles {
+  param([string]$RootBuildDir)
+  try {
+    if (-not $RootBuildDir) { return $false }
+    $slicerSrc = Join-Path $RootBuildDir 'slicersources-src'
+    $slicerBin = Join-Path $RootBuildDir 'Slicer-build'
+    if (-not (Test-Path $slicerSrc) -or -not (Test-Path $slicerBin)) { return $false }
+    $cache = Join-Path $slicerBin 'CMakeCache.txt'
+    $need = $true
+    if (Test-Path $cache) {
+      $txt = Get-Content -Path $cache -Raw -ErrorAction SilentlyContinue
+      if ($txt -and $txt -match 'CMAKE_NINJA_FORCE_RESPONSE_FILE:BOOL=ON') { $need = $false }
+    }
+    if (-not $need) { return $false }
+    Write-Host "Enabling Ninja response files for inner Slicer-build..." -ForegroundColor Yellow
+    # Use a very short output path prefix for rsp/dep files to avoid D8022 path issues
+    $shortPrefix = $slicerBin
+    # If Slicer-build is mapped to a drive (e.g., R:/), prefer that
+    $drives = Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Root
+    foreach($d in $drives){ if ($d -match '^[A-Z]:\\$' -and (Resolve-Path $d).Path -eq (Resolve-Path $slicerBin).Path){ $shortPrefix = ($d + 'o') ; break } }
+    try { if (-not (Test-Path $shortPrefix)) { New-Item -ItemType Directory -Force -Path $shortPrefix | Out-Null } } catch {}
+    $args = @('-G','Ninja','-S',$slicerSrc,'-B',$slicerBin,
+      '-DCMAKE_NINJA_FORCE_RESPONSE_FILE=ON',
+      '-DCMAKE_OBJECT_PATH_MAX=128',
+      '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase',
+      '-DCMAKE_C_USE_RESPONSE_FILE_FOR_OBJECTS=ON',
+      '-DCMAKE_CXX_USE_RESPONSE_FILE_FOR_OBJECTS=ON',
+      '-DCMAKE_C_USE_RESPONSE_FILE_FOR_INCLUDES=ON',
+      '-DCMAKE_CXX_USE_RESPONSE_FILE_FOR_INCLUDES=ON')
+    if ($shortPrefix) { $args += ('-DCMAKE_NINJA_OUTPUT_PATH_PREFIX={0}' -f ($shortPrefix -replace "\\","/")) }
+    cmake @args | Write-Host
+    return $true
+  } catch { return $false }
+}
+
+# Remove ExternalProject initial caches that contain a stale pattern (e.g., old build root like RS-build)
+function Purge-InitialCachesByPattern {
+  param(
+    [string]$RootDir,
+    [string]$Pattern
+  )
+  if (-not $RootDir -or -not (Test-Path $RootDir) -or -not $Pattern) { return 0 }
+  $files = Get-ChildItem -Path $RootDir -Recurse -File -Include '*cache-*.cmake' -ErrorAction SilentlyContinue |
+    Where-Object { $_.FullName -match '\\-prefix\\tmp\\' }
+  $count=0
+  foreach($f in $files){
+    try {
+      $text = Get-Content -Path $f.FullName -Raw -ErrorAction Stop
+      if ($text -match [regex]::Escape($Pattern)) {
+        Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+        $count++
+      }
+    } catch {}
+  }
+  if ($count -gt 0) { Write-Host "Purged initial caches containing '$Pattern': $count" -ForegroundColor Yellow }
+  return $count
+}
+
+# Normalize ExtraCMakeArgs also here (if invoked directly), same logic as Dev-Build-Ext
+function Normalize-ExtraArgs {
+  param([string[]]$Args)
+  $out=@()
+  if (-not $Args) { return $out }
+  foreach($a in $Args){
+    if ($null -eq $a) { continue }
+    $parts = $a -split ","
+    foreach($p in $parts){
+      $t = $p.Trim()
+      if ($t.StartsWith('"') -and $t.EndsWith('"') -and $t.Length -ge 2) { $t = $t.Substring(1, $t.Length-2) }
+      if ($t.StartsWith("'") -and $t.EndsWith("'") -and $t.Length -ge 2) { $t = $t.Substring(1, $t.Length-2) }
+      if ([string]::IsNullOrWhiteSpace($t)) { continue }
+      $out += $t
+    }
+  }
+  return $out
 }
 
 Write-Host "RadianceSuite fast build script (CMake Presets + Ninja + sccache)" -ForegroundColor Cyan
@@ -393,6 +576,38 @@ $cmakeArgFixups += '-DCMAKE_OBJECT_PATH_MAX=128'
 # Prefer PDB debug info to reduce path length pressure
 $cmakeArgFixups += '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase'
 
+# If sccache is available, use it as compiler launcher
+if (Test-Command sccache) {
+  $cmakeArgFixups += '-DCMAKE_C_COMPILER_LAUNCHER=sccache'
+  $cmakeArgFixups += '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache'
+}
+
+# Prefer TLS verify OFF only if explicitly requested upstream; keep conservative default here
+# Expose knob as part of ExtraCMakeArgs, but also allow injection through fixups if desired later
+
+# Optionally enable Windows long path support
+if ($EnableLongPaths) {
+  try {
+    $key = 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem'
+    $val = (Get-ItemProperty -Path $key -Name LongPathsEnabled -ErrorAction SilentlyContinue).LongPathsEnabled
+    if ($val -ne 1) {
+      New-ItemProperty -Path $key -Name LongPathsEnabled -PropertyType DWord -Value 1 -Force | Out-Null
+      Write-Host 'Enabled Windows long paths (registry). Reboot is required to fully apply.' -ForegroundColor Yellow
+    }
+  } catch {}
+}
+
+# Warn if Ninja 1.12+ is detected (known longer-path quirks on Windows)
+$ninjaVer = Get-NinjaVersion
+if ($ninjaVer) {
+  if ($ninjaVer -match '^(\d+)\.(\d+)\.(\d+)$') {
+    $maj=[int]$matches[1]; $min=[int]$matches[2]
+    if ($maj -ge 1 -and $min -ge 12) {
+      Write-Warning ("Detected Ninja {0}. For maximal stability on Windows, Ninja 1.11.x is recommended." -f $ninjaVer)
+    } else { Write-Host ("Using Ninja {0}" -f $ninjaVer) -ForegroundColor Yellow }
+  }
+}
+
  # Configure if missing or forced
 $needsConfigure = $ForceConfigure
 $effectivePreset = $Preset
@@ -455,11 +670,52 @@ else {
 if ($needsConfigure) {
   Write-Host "Configuring with preset '$effectivePreset'..." -ForegroundColor Green
   $cfgArgs = @('--preset', $effectivePreset)
-  if ($ExtraCMakeArgs) { $cfgArgs += $ExtraCMakeArgs }
+  $extraNorm = Normalize-ExtraArgs -Args $ExtraCMakeArgs
+  if ($extraNorm) { $cfgArgs += $extraNorm }
   # Purge any stale linker settings from cache (avoid picking MinGW/Strawberry ld.exe)
   $cfgArgs += @('-U','CMAKE_LINKER','-U','CMAKE_.*_LINKER')
   if ($cmakeArgFixups -and $cmakeArgFixups.Count -gt 0) { $cfgArgs += $cmakeArgFixups }
+  if ($BuildRoot) {
+    $sub = if ($effectivePreset -like '*rel*') { 'win-ninja-rel' } else { 'win-ninja-dev' }
+    $binDir = Join-Path ($BuildRoot -replace "\\","/") $sub
+    if (-not (Test-Path $binDir)) { New-Item -ItemType Directory -Force -Path $binDir | Out-Null }
+    # Repo root is one level up from Tools
+    $srcDir = Resolve-Path (Join-Path $PSScriptRoot '..') | Select-Object -ExpandProperty Path
+    $srcDir = ($srcDir -replace "\\","/")
+    $cfgArgs += @('-B', $binDir, '-S', $srcDir)
+
+    # Map short drive for inner Slicer-build before configure so response-file prefix can use it
+    if ($AutoShortDriveSlicer) {
+      try {
+        $slicerBin = Join-Path $binDir 'Slicer-build'
+        if (-not (Test-Path $slicerBin)) { New-Item -ItemType Directory -Force -Path $slicerBin | Out-Null }
+        $drv = $ShortDriveLetter.TrimEnd(':'); if (-not $drv) { $drv = 'R' }
+        if (Test-Path ("$($drv):")) {
+          # choose an alternate letter if requested one is busy
+          foreach($alt in 'R','Q','P','S','T','U') { if (-not (Test-Path ("$($alt):"))) { $drv=$alt; break } }
+        }
+        Write-Host ("Mapping {0}: to {1} for short-path Slicer configure..." -f $drv,$slicerBin) -ForegroundColor Yellow
+        cmd /c ("subst {0}: `"{1}`"" -f $drv,$slicerBin) | Out-Null
+      } catch {}
+    }
+  }
   cmake @cfgArgs | Write-Host
+  # After configure, proactively inject selected -D defs into all ExternalProject initial caches
+  $defs = Get-ExtraDefsMap -Args $extraNorm
+  if ($BuildRoot) {
+    [void](Apply-DefsToInitialCaches -RootDir $binDir -Defs $defs)
+    # Purge any caches that still point to a different build root (e.g., 'RS-build')
+    [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'RS-build')
+    [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'RS\\\\-build')
+    [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'W/Slicer-build')
+    [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'W\\\\Slicer-build')
+  } else {
+    [void](Apply-DefsToInitialCaches -RootDir $buildDir -Defs $defs)
+    [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'RS-build')
+    [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'RS\\\\-build')
+    [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'W/Slicer-build')
+    [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'W\\\\Slicer-build')
+  }
 } else {
   Write-Host "Configure step skipped (use -ForceConfigure to reconfigure)."
 }
@@ -481,10 +737,24 @@ if ($effectivePreset -like '*rel*') {
   else { $buildPreset = 'build-dev' }
 }
 
+# If BuildRoot is specified, override buildDir to point to custom binary dir
+if ($BuildRoot) {
+  $sub = if ($effectivePreset -like '*rel*') { 'win-ninja-rel' } else { 'win-ninja-dev' }
+  $buildDir = Join-Path ($BuildRoot -replace "\\","/") $sub
+}
+
 Write-Host "Building with preset '$buildPreset' (Jobs=$Jobs) ..." -ForegroundColor Green
 # Proactively ensure Python lib alias if already present
 [void](Ensure-PythonLibAliases -RootBuildDir $buildDir)
-# Proactively sanitize upstream VTK cache to avoid backslash escapes in Qt5_DIR
+# Sanitize initial caches for ExternalProject (response files, object path, policy minimum)
+# Always sanitize current build dir; also sanitize shared Slicer if in use.
+[void](Sanitize-UpstreamQtCache -SlicerBinDir $buildDir)
+# Also propagate top-level -D defs into EP initial caches before build
+$extraNorm = Normalize-ExtraArgs -Args $ExtraCMakeArgs
+$defs = Get-ExtraDefsMap -Args $extraNorm
+[void](Apply-DefsToInitialCaches -RootDir $buildDir -Defs $defs)
+ # Ensure inner Slicer-build uses response files to avoid CreateProcess failures
+ [void](Ensure-SlicerBuildResponseFiles -RootBuildDir $buildDir)
 if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { [void](Sanitize-UpstreamQtCache -SlicerBinDir $env:SLICER_BIN_DIR) }
 # If shared Slicer already fetched ExternalProject sources, proactively patch Teem probe
 if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) {
@@ -494,13 +764,27 @@ if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) {
     [void](Clean-TeemInitialCaches -SlicerBinDir $env:SLICER_BIN_DIR)
   }
 }
-if ($Jobs -gt 0) {
-  cmake --build --preset $buildPreset -- -j $Jobs | Write-Host
-} else {
-  cmake --build --preset $buildPreset | Write-Host
+function Invoke-BuildOnce {
+  param([string]$Dir,[string]$Preset,[int]$Jobs)
+  if ($Dir) {
+    if ($Jobs -gt 0) { cmake --build $Dir -- -j $Jobs | Write-Host } else { cmake --build $Dir | Write-Host }
+  } else {
+    if ($Jobs -gt 0) { cmake --build --preset $Preset -- -j $Jobs | Write-Host } else { cmake --build --preset $Preset | Write-Host }
+  }
 }
 
-if ($LASTEXITCODE -ne 0) {
+$attempt=0; $success=$false
+do {
+  $attempt++
+  if ($BuildRoot) { Invoke-BuildOnce -Dir $buildDir -Jobs $Jobs } else { Invoke-BuildOnce -Preset $buildPreset -Jobs $Jobs }
+  if ($LASTEXITCODE -eq 0) { $success=$true; break }
+  if ($attempt -le $BuildRetries) {
+    Write-Host ("Build attempt {0}/{1} failed. Retrying..." -f $attempt,$BuildRetries) -ForegroundColor Yellow
+    Start-Sleep -Seconds ([Math]::Min(15, 5 * $attempt))
+  }
+} while($attempt -le $BuildRetries)
+
+if (-not $success -and $LASTEXITCODE -ne 0) {
   # Attempt remediation for python3.lib and Qt backslash path, then retry once
   $fixed = Ensure-PythonLibAliases -RootBuildDir $buildDir
   if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { $fixed = (Sanitize-UpstreamQtCache -SlicerBinDir $env:SLICER_BIN_DIR) -or $fixed }
@@ -521,6 +805,21 @@ if ($LASTEXITCODE -ne 0) {
   if (-not $fixed -and $AutoShortDriveSlicer -and $slicerBuildDir -and (Test-Path $slicerBuildDir)) {
     $shortOk = Invoke-SlicerShortDriveBuild -SlicerBuildDir $slicerBuildDir -Jobs $Jobs -PreferredLetter $ShortDriveLetter -KeepMapping:$KeepShortDriveMapping
     if ($shortOk) { $fixed = $true }
+  }
+
+  # If inner Slicer-build may be in a bad multi-configured state, drop and reconfigure it once
+  if (-not $fixed) {
+    try {
+      $innerDir = if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { $env:SLICER_BIN_DIR } else { Join-Path $buildDir 'Slicer-build' }
+      if (Test-Path $innerDir) {
+        Write-Host "Resetting inner Slicer-build (to avoid 'multiple rules generate ...')" -ForegroundColor Yellow
+        Remove-Item -LiteralPath $innerDir -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Force -Path $innerDir | Out-Null
+        # Re-enable response files right away
+        [void](Ensure-SlicerBuildResponseFiles -RootBuildDir $buildDir)
+        $fixed = $true
+      }
+    } catch {}
   }
   if ($fixed) {
     Write-Host "Retrying build after applying remediation..." -ForegroundColor Yellow

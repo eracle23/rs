@@ -15,7 +15,7 @@ if(NOT DEFINED slicersources_SOURCE_DIR)
   # Download Slicer sources and set variables slicersources_SOURCE_DIR and slicersources_BINARY_DIR
   FetchContent_Populate(slicersources
     GIT_REPOSITORY ${EP_GIT_PROTOCOL}://github.com/Slicer/Slicer
-    GIT_TAG        c805ba768709f2e469e24af379db0881caac9b25
+    GIT_TAG        v5.8.1
     GIT_PROGRESS   1
     )
 endif()
@@ -59,6 +59,8 @@ set(SUPERBUILD_TOPLEVEL_PROJECT Slicer)
 set(EXTERNAL_PROJECT_ADDITIONAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SuperBuild")
 include(ExternalProjectDependency)
 mark_as_superbuild(Slicer_EXTENSIONS_DIRBASENAME:STRING)
+# 将扩展源码路径显式传递给 Slicer 超级构建（共享/独立两种模式都生效）
+mark_as_superbuild(Slicer_EXTENSION_SOURCE_DIRS:STRING)
 
 # Additional Slicer dependencies looked up in EXTERNAL_PROJECT_ADDITIONAL_DIR
 set(Slicer_ADDITIONAL_DEPENDENCIES
@@ -162,6 +164,10 @@ FetchContent_Populate(${extension_name}
   )
 message(STATUS "Remote - ${extension_name} [OK]")
 list(APPEND Slicer_EXTENSION_SOURCE_DIRS ${${extension_name}_SOURCE_DIR}/Modules/Scripted/SlicerCustomAppUtilities)
+
+# 打包第三方扩展（根据 Docs/plugin.md）
+include(${CMAKE_SOURCE_DIR}/SuperBuild/Extensions.cmake)
+list(REMOVE_DUPLICATES Slicer_EXTENSION_SOURCE_DIRS)
 
 # SlicerOpenIGTLink
 #set(extension_name "SlicerOpenIGTLink")

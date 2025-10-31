@@ -105,7 +105,7 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   //----------------------------------------------------------------------------
   QAction* helpAboutSlicerAppAction = new QAction(mainWindow);
   helpAboutSlicerAppAction->setObjectName("HelpAboutRadianceAppAction");
-  helpAboutSlicerAppAction->setText(qRadianceAppMainWindow::tr("About %1").arg(qSlicerApplication::application()->mainApplicationDisplayName()));
+  helpAboutSlicerAppAction->setText(qRadianceAppMainWindow::tr("About %1").arg(qSlicerApplication::application()->applicationName()));
   QObject::connect(helpAboutSlicerAppAction, &QAction::triggered,
                    q, &qRadianceAppMainWindow::on_HelpAboutRadianceAppAction_triggered);
 
