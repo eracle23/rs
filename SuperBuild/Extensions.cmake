@@ -65,6 +65,13 @@ _bundle_ext(Ext_AirwaySeg
   https://github.com/Slicer/SlicerAirwaySegmentation.git
   ade2f33)
 
+# 5) MarkupsToModel（SegmentEditorExtraEffects 依赖）
+#    仓库: SlicerIGT/SlicerMarkupsToModel
+#    锁定: HEAD at time of integration (312cf9f)
+_bundle_ext(Ext_MarkupsToModel
+  https://github.com/SlicerIGT/SlicerMarkupsToModel.git
+  312cf9f)
+
 option(RS_ENABLE_BUNDLE_DCM2NII "Bundle SlicerDcm2nii extension (requires compat shim)" OFF)
 if(RS_ENABLE_BUNDLE_DCM2NII)
   # 5) SlicerDcm2nii（dcm2niix 前端）
@@ -81,11 +88,10 @@ if(NOT RS_ENABLE_BUNDLE_DCM2NII)
 endif()
 message(STATUS "Bundled extensions: ${Slicer_EXTENSION_SOURCE_DIRS}")
 
-# Workaround for legacy extensions expecting Slicer_USE_FILE in custom-app context.
-# If SlicerDcm2nii is present, patch its CMakeLists.txt on-the-fly to avoid failing
-# include(${Slicer_USE_FILE}) and to provide mark_as_superbuild() in inner build.
+# Workaround for extensions expecting Slicer_USE_FILE in custom-app context.
+# Patch any extension CMakeLists that unconditionally includes ${Slicer_USE_FILE}.
 foreach(_ext_dir IN LISTS Slicer_EXTENSION_SOURCE_DIRS)
-  if(EXISTS "${_ext_dir}/CMakeLists.txt" AND EXISTS "${_ext_dir}/SuperBuild.cmake")
+  if(EXISTS "${_ext_dir}/CMakeLists.txt")
     file(READ "${_ext_dir}/CMakeLists.txt" _ext_cml)
     if(_ext_cml MATCHES "include\(\$\{Slicer_USE_FILE\}\)")
       set(_shim "\n# [RS compat] Inject shim for Slicer_USE_FILE when empty in custom-app\nif(NOT Slicer_USE_FILE)\n  set(Slicer_USE_FILE \"${CMAKE_CURRENT_LIST_DIR}/UseSlicerCompat.cmake\")\n  file(WRITE \"${CMAKE_CURRENT_LIST_DIR}/UseSlicerCompat.cmake\" \"if(DEFINED Slicer_CMAKE_DIR AND EXISTS \\\"${Slicer_CMAKE_DIR}/ExternalProjectDependency.cmake\\\")\\n  include(\\\"${Slicer_CMAKE_DIR}/ExternalProjectDependency.cmake\\\")\\nendif()\\n\")\nendif()\n")

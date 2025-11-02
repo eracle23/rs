@@ -62,6 +62,9 @@ set(EXTERNAL_PROJECT_ADDITIONAL_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/SuperBuild")
 include(ExternalProjectDependency)
 mark_as_superbuild(Slicer_EXTENSIONS_DIRBASENAME:STRING)
 mark_as_superbuild(EXTERNAL_PROJECT_ADDITIONAL_DIRS:STRING)
+mark_as_superbuild(CMAKE_INSTALL_PREFIX:PATH)
+mark_as_superbuild(Slicer_USE_SimpleITK:BOOL)
+mark_as_superbuild(Slicer_EXTENSION_INSTALL_DIRS:STRING)
 
 # Additional Slicer dependencies looked up in EXTERNAL_PROJECT_ADDITIONAL_DIR
 set(Slicer_ADDITIONAL_DEPENDENCIES
@@ -118,7 +121,8 @@ option(Slicer_BUILD_MULTIVOLUME_SUPPORT         "Build application with MultiVol
 option(Slicer_BUILD_PARAMETERSERIALIZER_SUPPORT "Build application with parameter serializer support" OFF)
 option(Slicer_USE_PYTHONQT                      "Build application with Python support"               ON)
 option(Slicer_USE_QtTesting                     "Build application with QtTesting support"            OFF)
-option(Slicer_USE_SimpleITK                     "Build application with SimpleITK support"            OFF)
+option(Slicer_USE_SimpleITK                     "Build application with SimpleITK support"            ON)
+set(Slicer_USE_SimpleITK ON CACHE BOOL "Build application with SimpleITK support" FORCE)
 
 option(Slicer_BUILD_BRAINSTOOLS                 "Build application with BRAINSTools module"           OFF)
 option(Slicer_BUILD_DataStore                   "Build application with DataStore module"             OFF)
@@ -202,5 +206,16 @@ set(EXTERNAL_PROJECT_ADDITIONAL_DIRS "${EXTERNAL_PROJECT_ADDITIONAL_DIRS}" CACHE
 #list(APPEND Slicer_EXTENSION_SOURCE_DIRS ${${extension_name}_SOURCE_DIR})
 
 
+# Pre-installed extension directories to bundle (Plan B)
+# Note: Provide install-tree roots; elements separated by ';'
+set(Slicer_EXTENSION_INSTALL_DIRS
+  "C:/S/ext-dcm2nii-install"
+  CACHE STRING "Pre-installed extensions to bundle" FORCE)
+message(STATUS "Bundled pre-installed extensions: ${Slicer_EXTENSION_INSTALL_DIRS}")
+
 # Add Slicer sources
 add_subdirectory(${slicersources_SOURCE_DIR} ${slicersources_BINARY_DIR})
+
+# Convenience target to avoid triggering the mother 'Slicer' target by mistake
+add_custom_target(Slicer-fast
+  DEPENDS Slicer-configure Slicer-build Slicer-install)

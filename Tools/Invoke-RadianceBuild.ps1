@@ -33,7 +33,14 @@ param(
   [int]$BuildRetries = 5,
 
   # Enable Windows long path support (requires reboot to fully take effect)
-  [switch]$EnableLongPaths
+  [switch]$EnableLongPaths,
+
+  # 只跑内层三步（VS 生成器下使用 cfg-inner/build-inner/install-inner 预设）
+  [switch]$InnerOnly,
+
+  # 指定内层配置（VS 多配置生成器）：Debug/Release/RelWithDebInfo/MinSizeRel
+  [ValidateSet('Debug','Release','RelWithDebInfo','MinSizeRel')]
+  [string]$InnerConfig = 'RelWithDebInfo'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -416,8 +423,15 @@ function Apply-DefsToInitialCaches {
         $val=$Defs[$key]
         $pattern = '^\s*set\(\s*' + [regex]::Escape($key) + '\s*"?'
         $existing = $out | Where-Object { $_ -match $pattern }
+        # Type mapping for well-known keys
+        $type = 'STRING'
+        switch ($key) {
+          'Slicer_USE_SimpleITK' { $type = 'BOOL' }
+          'CMAKE_INSTALL_PREFIX' { $type = 'PATH' }
+          default { $type = 'STRING' }
+        }
         # Write as CACHE entry with FORCE to ensure it takes effect when used via -C initial cache
-        $defLine = ('set({0} "{1}" CACHE STRING "Initial cache" FORCE)' -f $key, ($val -replace '\\','/'))
+        $defLine = ('set({0} "{1}" CACHE {2} "Initial cache" FORCE)' -f $key, ($val -replace '\\','/'), $type)
         if ($existing){
           # Replace first occurrence, keep rest
           for($i=0;$i -lt $out.Count;$i++){
@@ -882,6 +896,120 @@ if ($BuildRoot) {
   $buildDir = Join-Path ($BuildRoot -replace "\\","/") $sub
 }
 
+# VS 下给出提示：建议使用内层三步避免误触母目标
+if ($effectivePreset -like 'vs17*' -and -not $InnerOnly) {
+  Write-Warning "VS 方案默认 ALL_BUILD 可能会触发顶层母目标 'Slicer'。如需仅运行内层请使用 -InnerOnly。"
+}
+
+# InnerOnly：严格使用内层三步（VS 生成器下直接驱动内层 CMake，而非顶层母目标）
+if ($InnerOnly -and ($effectivePreset -like 'vs17*')) {
+  # 解析 vs17 配置预设的二进制目录
+  $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..') | Select-Object -ExpandProperty Path
+  $presetPath = Join-Path $repoRoot 'CMakePresets.json'
+  if (-not (Test-Path $presetPath)) { throw "Missing CMakePresets.json at $repoRoot" }
+  $presets = Get-Content $presetPath -Raw | ConvertFrom-Json
+  $cfg = ($presets.configurePresets | Where-Object { $_.name -eq $effectivePreset })
+  if (-not $cfg) { throw "Configure preset '$effectivePreset' not found in CMakePresets.json" }
+  $topBin = $cfg.binaryDir
+  if (-not $topBin) { $topBin = 'C:/S/vs-dev' }
+  $innerSrc = Join-Path $topBin 'slicersources-src'
+  $innerBin = Join-Path $topBin 'Slicer-build'
+  $icDir = Join-Path $topBin 'slicersources-build/Slicer-prefix/tmp'
+  # 选择与 $InnerConfig 匹配的初始 cache；若缺失，尽量从已有配置复制一份
+  $ic = Join-Path $icDir ("Slicer-cache-{0}.cmake" -f $InnerConfig)
+  if (-not (Test-Path $ic)) {
+    $fallbacks = @('RelWithDebInfo','Release','Debug','MinSizeRel') | Where-Object { $_ -ne $InnerConfig }
+    foreach ($fb in $fallbacks) {
+      $srcIc = Join-Path $icDir ("Slicer-cache-{0}.cmake" -f $fb)
+      if (Test-Path $srcIc) {
+        try { Copy-Item -LiteralPath $srcIc -Destination $ic -Force; Write-Host ("Seeded initial cache for {0} from {1}" -f $InnerConfig,$fb) -ForegroundColor Yellow } catch {}
+        break
+      }
+    }
+  }
+  # 小优化 #1/#2：将关键变量写入所有配置的初始 cache（Debug/RelWithDebInfo/Release/MinSizeRel）
+  try {
+    $topCache = Join-Path $topBin 'CMakeCache.txt'
+    # 从顶层 cache 读取值；若缺失则回落到常规默认
+    $defs = @{}
+    $defs['Slicer_USE_SimpleITK'] = 'ON'
+    $defs['CMAKE_INSTALL_PREFIX'] = 'C:/S/rs-install'
+    if (Test-Path $topCache) {
+      $tc = Get-Content -Path $topCache -Raw -ErrorAction SilentlyContinue
+      if ($tc -match 'CMAKE_INSTALL_PREFIX:PATH=([^\r\n]+)') { $defs['CMAKE_INSTALL_PREFIX'] = $matches[1] }
+      if ($tc -match 'Slicer_EXTENSION_INSTALL_DIRS:STRING=([^\r\n]+)') { $defs['Slicer_EXTENSION_INSTALL_DIRS'] = $matches[1] }
+      if ($tc -match 'Slicer_EXTENSION_SOURCE_DIRS:STRING=([^\r\n]+)') { $defs['Slicer_EXTENSION_SOURCE_DIRS'] = $matches[1] }
+    }
+    if (-not $defs.ContainsKey('Slicer_EXTENSION_INSTALL_DIRS')) { $defs['Slicer_EXTENSION_INSTALL_DIRS'] = 'C:/S/ext-dcm2nii-install' }
+    if (-not $defs.ContainsKey('Slicer_EXTENSION_SOURCE_DIRS')) { $defs['Slicer_EXTENSION_SOURCE_DIRS'] = '' }
+    # 应用到所有 *-prefix/tmp/Slicer-cache-*.cmake
+    [void](Apply-DefsToInitialCaches -RootDir $topBin -Defs $defs)
+  } catch {
+    Write-Warning ("初始 cache 写入优化未完成：{0}" -f $_.Exception.Message)
+  }
+  if (-not (Test-Path $innerBin)) { New-Item -ItemType Directory -Force -Path $innerBin | Out-Null }
+  if (-not (Test-Path $ic)) { throw "Inner initial cache not found: $ic. 请先运行 cmake --preset $effectivePreset 生成初始缓存。" }
+
+  Write-Host ("Inner configure ({0}) ..." -f $InnerConfig) -ForegroundColor Green
+  cmake -G "Visual Studio 17 2022" -A x64 -S ($innerSrc -replace "\\","/") -B ($innerBin -replace "\\","/") -C ($ic -replace "\\","/") | Write-Host
+  if ($LASTEXITCODE -ne 0) { throw "Inner configure failed." }
+  if ($ConfigureOnly) { Write-Host "ConfigureOnly: inner configure done." -ForegroundColor Yellow; return }
+
+  Write-Host ("Inner build ({0}) ..." -f $InnerConfig) -ForegroundColor Green
+  if ($Jobs -gt 0) {
+    $logsDir = 'C:/S/logs'; try { if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Force -Path $logsDir | Out-Null } } catch {}
+    $binlog = Join-Path $logsDir ("inner-{0}.binlog" -f $InnerConfig.ToLower())
+    cmake --build ($innerBin -replace "\\","/") --config $InnerConfig -- /m:$Jobs /v:m /bl:$binlog | Write-Host
+  } else {
+    cmake --build ($innerBin -replace "\\","/") --config $InnerConfig | Write-Host
+  }
+  if ($LASTEXITCODE -ne 0) { throw "Inner build failed." }
+
+  Write-Host ("Inner install ({0}) ..." -f $InnerConfig) -ForegroundColor Green
+  if ($Jobs -gt 0) {
+    cmake --build ($innerBin -replace "\\","/") --config $InnerConfig --target INSTALL -- /m:$Jobs | Write-Host
+  } else {
+    cmake --build ($innerBin -replace "\\","/") --config $InnerConfig --target INSTALL | Write-Host
+  }
+  if ($LASTEXITCODE -ne 0) { throw "Inner install failed." }
+
+  # Post-install quick fixup: copy essential runtime DLLs from EP builds (CTK/VTK/ITK) into install/bin
+  try {
+    $prefix = 'C:/S/rs-install'
+    try {
+      $tc = Get-Content -Path (Join-Path $topBin 'CMakeCache.txt') -Raw -ErrorAction SilentlyContinue
+      if ($tc -match 'CMAKE_INSTALL_PREFIX:PATH=([^\r\n]+)') { $prefix = $matches[1] }
+    } catch {}
+    $dest = Join-Path $prefix 'bin'
+    $srcs = @(
+      Join-Path $topBin ("CTK-build/CTK-build/bin/{0}" -f $InnerConfig),
+      Join-Path $topBin ("VTK-build/bin/{0}" -f $InnerConfig),
+      Join-Path $topBin ("ITK-build/bin/{0}" -f $InnerConfig),
+      # SlicerExecutionModel runtime (ModuleDescriptionParser.dll)
+      Join-Path $topBin ("SlicerExecutionModel-build/ModuleDescriptionParser/bin/{0}" -f $InnerConfig),
+      # Teem runtime (teem.dll)
+      Join-Path $topBin ("teem-build/bin/{0}" -f $InnerConfig)
+    )
+    $copied = 0
+    foreach ($s in $srcs) {
+      if (Test-Path $s) {
+        Write-Host ("Fixup: copying runtime DLLs from {0}" -f $s) -ForegroundColor Yellow
+        Get-ChildItem -Path $s -Filter '*.dll' -File -ErrorAction SilentlyContinue | ForEach-Object {
+          try { Copy-Item -LiteralPath $_.FullName -Destination $dest -Force; $copied++ } catch {}
+        }
+      }
+    }
+    if ($copied -gt 0) { Write-Host ("Fixup copied {0} DLLs into {1}" -f $copied,$dest) -ForegroundColor Green }
+  } catch { Write-Warning ("Post-install fixup skipped: {0}" -f $_.Exception.Message) }
+
+  if ($Package) {
+    Write-Host "Packaging after inner install ..." -ForegroundColor Green
+    cmake --build --preset vs17-dev-rel --target package | Write-Host
+  }
+  Write-Host "Done." -ForegroundColor Cyan
+  return
+}
+
 Write-Host "Building with preset '$buildPreset' (Jobs=$Jobs) ..." -ForegroundColor Green
 if ($effectivePreset -like 'win-ninja*') {
   # Proactively ensure Python lib alias if already present
@@ -992,15 +1120,3 @@ if ($Package) {
 }
 
 Write-Host "Done." -ForegroundColor Cyan
-# 稳定化下载（Git/SSH/并发）
-[switch]$StabilizeDownloads = $true,
-[switch]$SSHOver443
-)
-# 下载稳定化（可选，默认启用）
-if ($StabilizeDownloads) {
-  try {
-    & (Join-Path $PSScriptRoot 'Setup-DownloadStability.ps1') -Apply -UseGitSSHRewrite -GitHttp11 -GitMaxRequests 2 -GitCompression 0 -SSHOver443:$SSHOver443 | Out-Null
-  } catch {
-    Write-Warning ("下载稳定化步骤未成功: {0}" -f $_.Exception.Message)
-  }
-}

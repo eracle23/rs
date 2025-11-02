@@ -86,6 +86,30 @@
   ],
   "buildPresets": [
     {
+      "name": "cfg-inner",
+      "displayName": "Configure inner Slicer (VS2022)",
+      "configurePreset": "vs17-dev",
+      "configuration": "RelWithDebInfo",
+      "targets": ["Slicer-configure"],
+      "jobs": 0
+    },
+    {
+      "name": "build-inner",
+      "displayName": "Build inner Slicer (VS2022)",
+      "configurePreset": "vs17-dev",
+      "configuration": "RelWithDebInfo",
+      "targets": ["Slicer-build"],
+      "jobs": 0
+    },
+    {
+      "name": "install-inner",
+      "displayName": "Install inner Slicer (VS2022)",
+      "configurePreset": "vs17-dev",
+      "configuration": "RelWithDebInfo",
+      "targets": ["Slicer-install"],
+      "jobs": 0
+    },
+    {
       "name": "build-rel",
       "configurePreset": "win-ninja-rel",
       "jobs": 0
