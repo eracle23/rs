@@ -56,11 +56,12 @@ set(Slicer_DEFAULT_FAVORITE_MODULES "Data, SegmentEditor, VolumeRendering, Trans
 
 # Configure SuperBuild
 set(SUPERBUILD_TOPLEVEL_PROJECT Slicer)
-set(EXTERNAL_PROJECT_ADDITIONAL_DIR "${CMAKE_CURRENT_SOURCE_DIR}/SuperBuild")
+# Ensure Slicer SuperBuild also searches our local SuperBuild directory
+# for any future custom External_*.cmake files.
+set(EXTERNAL_PROJECT_ADDITIONAL_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/SuperBuild")
 include(ExternalProjectDependency)
 mark_as_superbuild(Slicer_EXTENSIONS_DIRBASENAME:STRING)
-# 将扩展源码路径显式传递给 Slicer 超级构建（共享/独立两种模式都生效）
-mark_as_superbuild(Slicer_EXTENSION_SOURCE_DIRS:STRING)
+mark_as_superbuild(EXTERNAL_PROJECT_ADDITIONAL_DIRS:STRING)
 
 # Additional Slicer dependencies looked up in EXTERNAL_PROJECT_ADDITIONAL_DIR
 set(Slicer_ADDITIONAL_DEPENDENCIES
@@ -168,6 +169,24 @@ list(APPEND Slicer_EXTENSION_SOURCE_DIRS ${${extension_name}_SOURCE_DIR}/Modules
 # 打包第三方扩展（根据 Docs/plugin.md）
 include(${CMAKE_SOURCE_DIR}/SuperBuild/Extensions.cmake)
 list(REMOVE_DUPLICATES Slicer_EXTENSION_SOURCE_DIRS)
+
+# 将扩展源码路径显式传递给 Slicer 超级构建（需在最终值确定后调用）
+mark_as_superbuild(Slicer_EXTENSION_SOURCE_DIRS:STRING)
+
+# 确保子目录（Slicer）能读取到最终值：写入缓存
+set(Slicer_EXTENSION_SOURCE_DIRS "${Slicer_EXTENSION_SOURCE_DIRS}" CACHE STRING "Bundled extension source dirs" FORCE)
+
+# 追加每个扩展的 SuperBuild/Superbuild 目录到 EXTERNAL_PROJECT_ADDITIONAL_DIRS，
+# 确保像 External_dcm2niix.cmake 这类外部依赖脚本可被内层配置找到。
+foreach(_ext_dir IN LISTS Slicer_EXTENSION_SOURCE_DIRS)
+  if(EXISTS "${_ext_dir}/SuperBuild")
+    list(APPEND EXTERNAL_PROJECT_ADDITIONAL_DIRS "${_ext_dir}/SuperBuild")
+  elseif(EXISTS "${_ext_dir}/Superbuild")
+    list(APPEND EXTERNAL_PROJECT_ADDITIONAL_DIRS "${_ext_dir}/Superbuild")
+  endif()
+endforeach()
+list(REMOVE_DUPLICATES EXTERNAL_PROJECT_ADDITIONAL_DIRS)
+set(EXTERNAL_PROJECT_ADDITIONAL_DIRS "${EXTERNAL_PROJECT_ADDITIONAL_DIRS}" CACHE STRING "Additional ExternalProject search dirs" FORCE)
 
 # SlicerOpenIGTLink
 #set(extension_name "SlicerOpenIGTLink")
