@@ -22,11 +22,11 @@ _This project is in active development and may change from version to version wi
 - [Contributing](CONTRIBUTING.md)
 - [Building](BUILD.md)
 - Bootstrap prereqs (admin): `pwsh -ExecutionPolicy Bypass Tools/Bootstrap-Prereqs.ps1 -AutoElevate -InstallChocolatey`
-- Quick build: `pwsh Tools/Invoke-RadianceBuild.ps1 -QtDir C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5`
-- One-command dev build (configure+app only): `pwsh Tools/Dev-Build.ps1 -Action build -UseSharedSlicer -QtCMakeDir C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5 -Jobs 0` (see `Docs/dev-build-wrapper.md`)
+- Quick build (VS/MSBuild, recommended): `pwsh Tools/Invoke-RadianceBuild.ps1 -Preset vs17-dev -Jobs 0`
+- Incremental app-only build (VS inner tree): `cmake --build C:/S/vs-dev/Slicer-build --config RelWithDebInfo --target RadianceApp -- /m`
 - Shared Slicer (one-time): `pwsh Tools/Setup-SharedSlicer.ps1 -SetEnv`
-- Use shared Slicer: `pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-dev -UseSharedSlicer`
+- Use shared Slicer (VS): `pwsh Tools/Invoke-RadianceBuild.ps1 -Preset vs17-dev -UseSharedSlicer`
 - Set env vars (one-time): `pwsh Tools/Setup-BuildEnv.ps1 -QtCMakeDir C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5`
-- Out-of-tree is default (../RS-build); no flag needed
+- Out-of-tree for VS: `C:/S/vs-dev`（由 `CMakePresets.json` 定义）
 
 ![RadianceSuite by Radiance Labs](Applications/RadianceApp/Resources/Images/LogoFull.png?raw=true)

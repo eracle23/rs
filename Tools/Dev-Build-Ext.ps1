@@ -25,8 +25,8 @@ param(
   [ValidateSet('configure','build','package')]
   [string]$Action = 'build',
 
-  [ValidateSet('win-ninja-dev','win-ninja-rel')]
-  [string]$Preset = 'win-ninja-dev',
+  [ValidateSet('win-ninja-dev','win-ninja-rel','vs17-dev')]
+  [string]$Preset = 'vs17-dev',
 
   # Qt5 CMake 根目录（如 C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5）
   [string]$QtCMakeDir,
@@ -70,12 +70,16 @@ param(
 
   # 构建重试次数（网络波动时有用）
   [int]$BuildRetries = 5
+  ,
+  # 下载稳定化（Git/SSH/并发）
+  [switch]$StabilizeDownloads = $true,
+  [switch]$SSHOver443
 )
 
 $ErrorActionPreference = 'Stop'
 
 Write-Host "Dev-Build-Ext: $Action (Preset=$Preset, Shared=$UseSharedSlicer)" -ForegroundColor Cyan
-if ($BuildRoot) {
+if ($BuildRoot -and ($Preset -notlike 'vs17*')) {
   $normBuildRoot = ($BuildRoot -replace "\\","/")
   Write-Host "Using custom build root: $normBuildRoot" -ForegroundColor Yellow
 }
@@ -212,10 +216,10 @@ if ($LocalExtDirs) {
 
 # 5) 强制重新配置（将扩展清单传入 SuperBuild）
 Write-Host "Configuring via Tools/Invoke-RadianceBuild.ps1 ..." -ForegroundColor Green
-if ($BuildRoot) {
-  & (Join-Path $PSScriptRoot 'Invoke-RadianceBuild.ps1') -Preset $Preset -UseSharedSlicer:$UseSharedSlicer -ForceConfigure:$ForceConfigure -ConfigureOnly -QtDir $QtCMakeDir -ExtraCMakeArgs $cfgArgs -BuildRoot $normBuildRoot -BuildRetries $BuildRetries
+if ($BuildRoot -and ($Preset -notlike 'vs17*')) {
+  & (Join-Path $PSScriptRoot 'Invoke-RadianceBuild.ps1') -Preset $Preset -UseSharedSlicer:$UseSharedSlicer -ForceConfigure:$ForceConfigure -ConfigureOnly -QtDir $QtCMakeDir -ExtraCMakeArgs $cfgArgs -BuildRoot $normBuildRoot -BuildRetries $BuildRetries -StabilizeDownloads:$StabilizeDownloads -SSHOver443:$SSHOver443
 } else {
-  & (Join-Path $PSScriptRoot 'Invoke-RadianceBuild.ps1') -Preset $Preset -UseSharedSlicer:$UseSharedSlicer -ForceConfigure:$ForceConfigure -ConfigureOnly -QtDir $QtCMakeDir -ExtraCMakeArgs $cfgArgs
+  & (Join-Path $PSScriptRoot 'Invoke-RadianceBuild.ps1') -Preset $Preset -UseSharedSlicer:$UseSharedSlicer -ForceConfigure:$ForceConfigure -ConfigureOnly -QtDir $QtCMakeDir -ExtraCMakeArgs $cfgArgs -StabilizeDownloads:$StabilizeDownloads -SSHOver443:$SSHOver443
 }
 
 if ($Action -eq 'configure') {
@@ -226,14 +230,16 @@ if ($Action -eq 'configure') {
 # 6) 构建/打包顶层 SuperBuild 目标
 if ($KillRunningApp) { Stop-AppLockers -Names @('Alice','AliceApp-real','SlicerDesigner') }
 
-if ($Preset -like '*rel*') {
+if ($Preset -like 'vs17*') {
+  $buildPreset = 'vs17-dev-rel'
+} elseif ($Preset -like '*rel*') {
   $buildPreset = if ($UseSharedSlicer) { 'build-rel-shared' } else { 'build-rel' }
 } else {
   $buildPreset = if ($UseSharedSlicer) { 'build-dev-shared' } else { 'build-dev' }
 }
 
 # 当指定了自定义 BuildRoot 时，直接按路径构建/打包并提前返回，避免使用预设绑定到固定 RS-build。
-if ($BuildRoot) {
+if ($BuildRoot -and ($Preset -notlike 'vs17*')) {
   $binSub = if ($Preset -like '*rel*') { 'win-ninja-rel' } else { 'win-ninja-dev' }
   $rsConfigDir = $normBuildRoot
   $buildDir = Join-Path $rsConfigDir $binSub
@@ -247,7 +253,7 @@ if ($BuildRoot) {
   }
   # 默认执行 Slicer 目标
   # 通过 Invoke-RadianceBuild 执行构建，复用内部的缓存清理/策略修复逻辑
-  & (Join-Path $PSScriptRoot 'Invoke-RadianceBuild.ps1') -Preset $Preset -UseSharedSlicer:$UseSharedSlicer -QtDir $QtCMakeDir -Jobs $Jobs -ExtraCMakeArgs $cfgArgs -BuildRoot $normBuildRoot -BuildRetries $BuildRetries
+  & (Join-Path $PSScriptRoot 'Invoke-RadianceBuild.ps1') -Preset $Preset -UseSharedSlicer:$UseSharedSlicer -QtDir $QtCMakeDir -Jobs $Jobs -ExtraCMakeArgs $cfgArgs -BuildRoot $normBuildRoot -BuildRetries $BuildRetries -StabilizeDownloads:$StabilizeDownloads -SSHOver443:$SSHOver443
   if ($LASTEXITCODE -ne 0) { throw "Build failed." }
   Write-Host "Done." -ForegroundColor Cyan
   return
@@ -269,7 +275,7 @@ if ($Jobs -gt 0) {
   cmake --build --preset $buildPreset --target Slicer | Write-Host
 }
 
-if ($LASTEXITCODE -ne 0) {
+if ($LASTEXITCODE -ne 0 -and ($Preset -notlike 'vs17*')) {
   # 回退：在 Slicer-build 目录使用短盘符 + ninja 直接构建，缓解 D8022/rsp 超长
   if ($AutoShortDriveSlicer) {
     $rsBuildRoot = Join-Path $PSScriptRoot "..\\..\\RS-build"

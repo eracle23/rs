@@ -66,6 +66,22 @@
       "displayName": "Windows Ninja (RelWithDebInfo, out-of-tree)",
       "inherits": "win-ninja-dev",
       "binaryDir": "${sourceDir}/../RS-build/win-ninja-dev"
+    },
+    {
+      "name": "vs17-dev",
+      "displayName": "VS2022 x64 (RelWithDebInfo)",
+      "description": "Visual Studio 2022 multi-config build; superbuild ON; tests OFF.",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "C:/S/vs-dev",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "C:/S/rs-install",
+        "CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION": "10.0.26100.0",
+        "CMAKE_VERBOSE_MAKEFILE": "ON",
+        "Slicer_SUPERBUILD": "ON",
+        "Slicer_BUILD_TESTING": "OFF",
+        "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5"
+      }
     }
   ],
   "buildPresets": [
@@ -97,6 +113,20 @@
     {
       "name": "build-dev-out",
       "configurePreset": "win-ninja-dev-out",
+      "jobs": 0
+    },
+    {
+      "name": "vs17-dev-rel",
+      "displayName": "VS2022 build (RelWithDebInfo)",
+      "configurePreset": "vs17-dev",
+      "configuration": "RelWithDebInfo",
+      "jobs": 0
+    },
+    {
+      "name": "vs17-dev-dbg",
+      "displayName": "VS2022 build (Debug)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Debug",
       "jobs": 0
     }
   ],

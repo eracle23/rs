@@ -10,17 +10,14 @@
 - 在 VS 开发环境里构建
   - 打开“x64 Native Tools Command Prompt for VS 2022”或“Developer PowerShell for VS 2022”。
   - 确保 `cl`/`rc`/`mt` 可用，SDK 路径完整，避免 `kernel32.lib` 等链接失败导致反复尝试耗时。
-- 共享 Slicer，避免反复 SuperBuild
-  - 构建命令（首次/必要时）：`pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-dev -UseSharedSlicer -ForceConfigure -Jobs 0`
-  - 日常：`pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-dev -UseSharedSlicer -Jobs 0`
-  - 不要频繁 `-ForceConfigure`，仅在缓存损坏或 Preset/工具链变更时使用。
-- 仅构建应用目标（C++ 改动）
-  - `cmake --build --preset build-dev-shared --target RadianceApp -j 0`
+- 共享 Slicer，避免反复 SuperBuild（VS 预设）
+  - 首次/必要时：`pwsh Tools/Invoke-RadianceBuild.ps1 -Preset vs17-dev -UseSharedSlicer -ForceConfigure -Jobs 0`
+  - 日常：`pwsh Tools/Invoke-RadianceBuild.ps1 -Preset vs17-dev -UseSharedSlicer -Jobs 0`
+  - 不要频繁 `-ForceConfigure`，仅在缓存损坏或预设/工具链变更时使用。
+- 仅构建应用目标（C++ 改动，指向内层 Slicer-build）
+  - `cmake --build C:/S/vs-dev/Slicer-build --config RelWithDebInfo --target RadianceApp -- /m`
   - 更快链接：关闭正在运行的 `<AppName>.exe`，避免 `LNK1168 cannot open *.dll`。
 - Python/界面（零编译增量）
-  - 同步到运行树（Ninja 拷贝目标）：
-    - `ninja lib/Alice-5.9/qt-scripted-modules/YourModule.py`
-    - `ninja lib/Alice-5.9/qt-scripted-modules/Resources/UI/YourDialog.ui`
   - 运行中热重载：`slicer.util.reloadScriptedModule("YourModule")`
 - 启用编译缓存（sccache）
   - 首次配置时加：`-ExtraCMakeArgs '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache;-DCMAKE_C_COMPILER_LAUNCHER=sccache'`
@@ -36,25 +33,21 @@
 
 ## 常用命令速查
 - 首次或必要时的全配置（共享 Slicer）：
-  - `pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-dev -UseSharedSlicer -ForceConfigure -Jobs 0`
+  - `pwsh Tools/Invoke-RadianceBuild.ps1 -Preset vs17-dev -UseSharedSlicer -ForceConfigure -Jobs 0`
 - 日常快速构建（共享 Slicer）：
-  - `pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-dev -UseSharedSlicer -Jobs 0`
-- 仅编应用（C++ 改动）：
-  - `cmake --build --preset build-dev-shared --target RadianceApp -j 0`
-- 同步 Python/界面资源（零编译）：
-  - `ninja lib/Alice-5.9/qt-scripted-modules/YourModule.py`
-  - `ninja lib/Alice-5.9/qt-scripted-modules/Resources/UI/YourDialog.ui`
+  - `pwsh Tools/Invoke-RadianceBuild.ps1 -Preset vs17-dev -UseSharedSlicer -Jobs 0`
+- 仅编应用（C++ 改动，内层）：
+  - `cmake --build C:/S/vs-dev/Slicer-build --config RelWithDebInfo --target RadianceApp -- /m`
 - 运行：
-  - `../RS-build/win-ninja-dev/Slicer-build/<AppName>.exe`
+  - `C:/S/vs-dev/Slicer-build/bin/RelWithDebInfo/<AppName>-real.exe`
 
 ## 故障排查（避免全仓重编）
 - 链接失败 `LNK1168`：关闭正在运行的 `<AppName>.exe` 后重试，仅编目标。
 - 共享 Slicer 失败在第三方库：
   - 仅重建对应目标：例如 `cmake --build C:/W/Slicer-build -j 1 --target teem`（通过后再整体构建）。
-- 规则缺失（`CMakeFiles/rules.ninja`）：
-  - 在共享 Slicer 目录重新配置：
-    - `cmake -GNinja -S C:/W/Slicer -B C:/W/Slicer-build -DCMAKE_NINJA_FORCE_RESPONSE_FILE=ON -DCMAKE_OBJECT_PATH_MAX=128 -DMSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase`
-    - `cmake --build C:/W/Slicer-build -j 0`
+- 内层生成器损坏/需要重配：
+  - 在共享 Slicer 目录用 VS 生成器重新配置：
+    - `cmake -G "Visual Studio 17 2022" -A x64 -S C:/W/Slicer -B C:/W/Slicer-build -DQt5_DIR=C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5`
+    - `cmake --build C:/W/Slicer-build --config RelWithDebInfo -- /m`
 
 > 说明：本指南与脚本 `Tools/Invoke-RadianceBuild.ps1` 协同工作；脚本已内置短路径/稳定化参数与常见问题补救（Windows SDK 路径、Teem QNaN 探测修复、HDF5/VTK 兼容项等）。
-

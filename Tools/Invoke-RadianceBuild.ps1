@@ -1,6 +1,6 @@
 param(
-  [ValidateSet('win-ninja-dev','win-ninja-rel')]
-  [string]$Preset = 'win-ninja-dev',
+  [ValidateSet('win-ninja-dev','win-ninja-rel','vs17-dev')]
+  [string]$Preset = 'vs17-dev',
 
   [string]$QtDir,
 
@@ -38,6 +38,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Path to Ninja wrapper that demotes duplicate-rule errors to warnings.
+# Use forward slashes so it can be safely passed to CMake.
+$global:NinjaWrapPath = 'C:/Tools/Ninja-1.11.1/ninja-wrap.bat'
+
 function Test-Command {
   param([string]$Name)
   return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
@@ -73,25 +77,23 @@ function Import-VSDevEnvironment {
 # Proactively import VS developer environment so cl/link/SDK are available in plain PowerShell
 Import-VSDevEnvironment
 
-# Ensure preferred CMake version (3.27.x) is used if available
+# Ensure preferred CMake version is used if available (prefer 3.30/3.29, then 3.27)
 function Get-CMakeVersion([string]$Exe){ try { & $Exe --version | Select-Object -First 1 } catch { return $null } }
 function Ensure-PreferredCMake {
-  # If current cmake isn't 3.27.x, try to prepend a 3.27 install to PATH
   $cur = (Get-Command cmake -ErrorAction SilentlyContinue)
   $curLine = if($cur){ Get-CMakeVersion -Exe $cur.Source } else { $null }
-  $ok = ($curLine -match '^cmake\s+version\s+3\.27\.')
-  if ($ok) { Write-Host "Using CMake: $($cur.Source) [$($curLine)]" -ForegroundColor Yellow; return }
-  $candidates = @()
-  $candidates += 'C:\\Program Files\\CMake\\bin\\cmake.exe'
-  $candidates += 'C:\\ProgramData\\chocolatey\\lib\\cmake\\tools\\**\\bin\\cmake.exe'
+  $pref = @('^cmake\s+version\s+3\.30\.', '^cmake\s+version\s+3\.29\.', '^cmake\s+version\s+3\.27\.')
+  foreach($p in $pref){ if ($curLine -and ($curLine -match $p)) { $global:PreferredCMakeDir = Split-Path $cur.Source -Parent; Write-Host "Using CMake: $($cur.Source) [$($curLine)]" -ForegroundColor Yellow; return } }
+  $candidates = @('C:\\Program Files\\CMake\\bin\\cmake.exe','C:\\ProgramData\\chocolatey\\lib\\cmake\\tools\\**\\bin\\cmake.exe','C:\\Strawberry\\c\\bin\\cmake.exe')
   foreach($cand in $candidates){
     $paths = Get-ChildItem -Path $cand -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
     foreach($p in $paths){
       $line = Get-CMakeVersion -Exe $p
-      if ($line -and ($line -match '^cmake\s+version\s+3\.27\.')){
+      if ($line -and ($pref | Where-Object { $line -match $_ })){
         $dir = Split-Path $p -Parent
         $env:PATH = "$dir;" + $env:PATH
-        Write-Host "Preferring CMake 3.27.x: $p [$line]" -ForegroundColor Yellow
+        $global:PreferredCMakeDir = $dir
+        Write-Host "Preferring CMake: $p [$line]" -ForegroundColor Yellow
         return
       }
     }
@@ -99,6 +101,17 @@ function Ensure-PreferredCMake {
   if ($cur){ Write-Host "Using CMake: $($cur.Source) [$curLine]" -ForegroundColor Yellow }
 }
 Ensure-PreferredCMake
+
+# Prefer pinned Ninja 1.11.1 early in PATH so try_compile picks it up
+try {
+  $n11 = 'C:\\Tools\\Ninja-1.11.1'
+  if (Test-Path $n11) {
+    $paths = @($env:PATH -split ';')
+    if (-not ($paths | Where-Object { $_ -and ($_ -ieq $n11) })) {
+      $env:PATH = "$n11;" + $env:PATH
+    }
+  }
+} catch {}
 
 function Ensure-WindowsSdkLibInclude {
   try {
@@ -172,7 +185,12 @@ function Invoke-SlicerShortDriveBuild {
   try {
     Push-Location ("${drive}:/")
     Write-Host "Building Slicer in ${drive}:/ with ninja (Jobs=$Jobs)..." -ForegroundColor Green
-    if ($Jobs -gt 0) { ninja -j $Jobs } else { ninja }
+    $nwrap = if (Test-Path ($global:NinjaWrapPath -replace '\\','/')) { $global:NinjaWrapPath } else { $null }
+    if ($nwrap) {
+      if ($Jobs -gt 0) { & $nwrap -j $Jobs } else { & $nwrap }
+    } else {
+      if ($Jobs -gt 0) { ninja -j $Jobs } else { ninja }
+    }
     if ($LASTEXITCODE -ne 0) { return $false }
   } finally {
     Pop-Location -ErrorAction SilentlyContinue
@@ -280,6 +298,9 @@ function Ensure-SharedSlicerConfigured {
     '-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY',
     '-DCMAKE_C_FLAGS=/D_CRT_DECLARE_NONSTDC_NAMES=1',
     '-DCMAKE_CXX_FLAGS=/D_CRT_DECLARE_NONSTDC_NAMES=1')
+  if (Test-Path ($global:NinjaWrapPath -replace '\\','/')) {
+    $args += ('-DCMAKE_MAKE_PROGRAM={0}' -f $global:NinjaWrapPath)
+  }
   cmake @args | Write-Host
   return $true
 }
@@ -299,10 +320,22 @@ function Sanitize-UpstreamQtCache {
       $hasForceRsp = $false
       $hasObjMax = $false
       $hasPolicyMin = $false
+      $hasMakeProg = $false
+      $hasTryCfg = $false
       foreach ($ln in $lines) {
         if ($ln -match '^\s*set\(\s*CMAKE_NINJA_FORCE_RESPONSE_FILE\s*"?ON"?\s*\)') { $hasForceRsp = $true }
         if ($ln -match '^\s*set\(\s*CMAKE_OBJECT_PATH_MAX\s*"?\d+"?\s*\)') { $hasObjMax = $true }
         if ($ln -match '^\s*set\(\s*CMAKE_POLICY_VERSION_MINIMUM\s*"?') { $hasPolicyMin = $true }
+        if ($ln -match '^\s*set\(\s*CMAKE_MAKE_PROGRAM\s*"?([^\"]+)"?\s*\)') {
+          $hasMakeProg = $true
+          $cur = $matches[1] -replace "\\","/"
+          $target = $global:NinjaWrapPath
+          if ($target -and ($cur -ne $target)) {
+            $ln = ('set(CMAKE_MAKE_PROGRAM "{0}")' -f $target)
+            $localChanged = $true
+          }
+        }
+        if ($ln -match '^\s*set\(\s*CMAKE_TRY_COMPILE_CONFIGURATION\s*"?([^\"]+)"?\s*\)') { $hasTryCfg = $true }
         if ($ln -match '^\s*set\(\s*Qt5_DIR\s*"([^"]+)"') {
           $parts = $ln -split '"',3
           if ($parts.Count -ge 3) {
@@ -325,6 +358,16 @@ function Sanitize-UpstreamQtCache {
       }
       if (-not $hasPolicyMin) {
         $out += 'set(CMAKE_POLICY_VERSION_MINIMUM "3.5")'
+        $localChanged = $true
+      }
+      # Ensure all ExternalProject initial caches use the Ninja wrapper
+      if (-not $hasMakeProg -and (Test-Path ($global:NinjaWrapPath -replace '\\','/'))) {
+        $out += ('set(CMAKE_MAKE_PROGRAM "{0}")' -f $global:NinjaWrapPath)
+        $localChanged = $true
+      }
+      # Set safer try_compile configuration (Debug) to avoid COPY_FILE path issues on Ninja
+      if (-not $hasTryCfg) {
+        $out += 'set(CMAKE_TRY_COMPILE_CONFIGURATION "Debug")'
         $localChanged = $true
       }
       if ($localChanged) {
@@ -398,7 +441,15 @@ function Ensure-SlicerBuildResponseFiles {
     if (-not $RootBuildDir) { return $false }
     $slicerSrc = Join-Path $RootBuildDir 'slicersources-src'
     $slicerBin = Join-Path $RootBuildDir 'Slicer-build'
-    if (-not (Test-Path $slicerSrc) -or -not (Test-Path $slicerBin)) { return $false }
+    if (-not (Test-Path $slicerSrc)) { return $false }
+    if (-not (Test-Path $slicerBin)) { try { New-Item -ItemType Directory -Force -Path $slicerBin | Out-Null } catch {} }
+    # If Slicer-build already has a generated build.ninja, avoid re-configuring here to prevent
+    # duplicate custom targets (e.g., 'multiple rules generate CompileSlicerPythonFiles').
+    $buildNinja = Join-Path $slicerBin 'build.ninja'
+    if (Test-Path $buildNinja) {
+      Write-Host "Slicer-build already configured (build.ninja present); skipping reconfigure to avoid duplicate rules." -ForegroundColor Yellow
+      return $false
+    }
     $cache = Join-Path $slicerBin 'CMakeCache.txt'
     $need = $true
     if (Test-Path $cache) {
@@ -413,6 +464,41 @@ function Ensure-SlicerBuildResponseFiles {
     $drives = Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Root
     foreach($d in $drives){ if ($d -match '^[A-Z]:\\$' -and (Resolve-Path $d).Path -eq (Resolve-Path $slicerBin).Path){ $shortPrefix = ($d + 'o') ; break } }
     try { if (-not (Test-Path $shortPrefix)) { New-Item -ItemType Directory -Force -Path $shortPrefix | Out-Null } } catch {}
+
+    # Force VC/Windows SDK LIB/INCLUDE for inner cmake try-compile to avoid LNK1104 (kernel32.lib)
+    try {
+      $msvcRoot = 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC'
+      $latest = Get-ChildItem $msvcRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1
+      if ($latest) {
+        $vcInc = Join-Path $latest.FullName 'include'
+        $vcLib = Join-Path $latest.FullName 'lib\\x64'
+        if ($vcInc -and (Test-Path $vcInc) -and ($env:INCLUDE -notmatch [regex]::Escape($vcInc))) { $env:INCLUDE = "$vcInc;" + $env:INCLUDE }
+        if ($vcLib -and (Test-Path $vcLib) -and ($env:LIB -notmatch [regex]::Escape($vcLib))) { $env:LIB = "$vcLib;" + $env:LIB }
+      }
+      $sdkRoot = 'C:\\Program Files (x86)\\Windows Kits\\10'
+      $libRoot = Join-Path $sdkRoot 'Lib'
+      $incRoot = Join-Path $sdkRoot 'Include'
+      $ver = (Get-ChildItem $libRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1).Name
+      if ($ver) {
+        $umLib  = Join-Path $libRoot  (Join-Path $ver 'um\\x64')
+        $ucrtLib= Join-Path $libRoot  (Join-Path $ver 'ucrt\\x64')
+        $umInc  = Join-Path $incRoot  (Join-Path $ver 'um')
+        $ucrtInc= Join-Path $incRoot  (Join-Path $ver 'ucrt')
+        $sharedInc = Join-Path $incRoot (Join-Path $ver 'shared')
+        $winrtInc  = Join-Path $incRoot (Join-Path $ver 'winrt')
+        $cppwinrtInc = Join-Path $incRoot (Join-Path $ver 'cppwinrt')
+        foreach ($inc in @($umInc,$ucrtInc,$sharedInc,$winrtInc,$cppwinrtInc)) {
+          if ($inc -and (Test-Path $inc) -and ($env:INCLUDE -notmatch [regex]::Escape($inc))) { $env:INCLUDE = "$inc;" + $env:INCLUDE }
+        }
+        foreach ($lib in @($umLib,$ucrtLib)) {
+          if ($lib -and (Test-Path $lib) -and ($env:LIB -notmatch [regex]::Escape($lib))) { $env:LIB = "$lib;" + $env:LIB }
+        }
+      }
+      $libPreview = (($env:LIB -split ';') | Where-Object { $_ } | Select-Object -First 3) -join ';'
+      $incPreview = (($env:INCLUDE -split ';') | Where-Object { $_ } | Select-Object -First 3) -join ';'
+      Write-Host "Inner cmake ENV prepared. LIB(head)=$libPreview" -ForegroundColor Yellow
+      Write-Host "Inner cmake ENV prepared. INCLUDE(head)=$incPreview" -ForegroundColor Yellow
+    } catch {}
     $args = @('-G','Ninja','-S',$slicerSrc,'-B',$slicerBin,
       '-DCMAKE_NINJA_FORCE_RESPONSE_FILE=ON',
       '-DCMAKE_OBJECT_PATH_MAX=128',
@@ -422,8 +508,40 @@ function Ensure-SlicerBuildResponseFiles {
       '-DCMAKE_C_USE_RESPONSE_FILE_FOR_INCLUDES=ON',
       '-DCMAKE_CXX_USE_RESPONSE_FILE_FOR_INCLUDES=ON')
     if ($shortPrefix) { $args += ('-DCMAKE_NINJA_OUTPUT_PATH_PREFIX={0}' -f ($shortPrefix -replace "\\","/")) }
+    if (Test-Path ($global:NinjaWrapPath -replace '\\','/')) {
+      $args += ('-DCMAKE_MAKE_PROGRAM={0}' -f $global:NinjaWrapPath)
+    }
     cmake @args | Write-Host
     return $true
+  } catch { return $false }
+}
+
+# Remove known duplicate phony alias lines that can cause
+# "multiple rules generate .../CompileSlicerPythonFiles" in Ninja
+function Fix-NinjaDuplicateAliases {
+  param([string]$SlicerBuildDir)
+  try {
+    if (-not $SlicerBuildDir) { return $false }
+    $ninja = Join-Path $SlicerBuildDir 'build.ninja'
+    if (-not (Test-Path $ninja)) { return $false }
+    $text = Get-Content -LiteralPath $ninja -Raw -ErrorAction Stop
+    $patterns = @(
+      '(?m)^build\s+.+?Slicer-build\\CompileSlicerPythonFiles:\s+phony\s+.+?Slicer-build\\CompileSlicerPythonFiles\s*$',
+      '(?m)^build\s+.+?Slicer-build\\CompileStdLibAndSitePackagesPythonFiles:\s+phony\s+.+?Slicer-build\\CompileStdLibAndSitePackagesPythonFiles\s*$'
+    )
+    $changed = $false
+    foreach($pat in $patterns){
+      if ($text -match $pat) {
+        $text = [regex]::Replace($text, $pat, '# removed duplicate alias')
+        $changed = $true
+      }
+    }
+    if ($changed){
+      Set-Content -LiteralPath $ninja -Value $text -Encoding ASCII -NoNewline
+      Write-Host "Patched Ninja file to remove duplicate phony aliases" -ForegroundColor Yellow
+      return $true
+    }
+    return $false
   } catch { return $false }
 }
 
@@ -526,6 +644,12 @@ if (-not (Test-Command cl.exe)) {
 
 # Ensure MSVC link tools preferred over MinGW/Strawberry
 $env:PATH = (@($env:PATH -split ';') | Where-Object { $_ -and ($_ -notmatch 'Strawberry\\c\\bin') -and ($_ -notmatch 'MinGW') }) -join ';'
+$prefDir = $global:PreferredCMakeDir
+if ($prefDir -and (Test-Path $prefDir)) {
+  if (-not (@($env:PATH -split ';') | Where-Object { $_ -and ($_ -ieq $prefDir) })) {
+    $env:PATH = "$prefDir;" + $env:PATH
+  }
+}
 $linkCmd = Get-Command link.exe -ErrorAction SilentlyContinue
 if (-not $linkCmd) {
   $vcLink = Get-ChildItem 'C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools\\VC\\Tools\\MSVC\\*\\bin\\Hostx64\\x64\\link.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -569,17 +693,25 @@ if (-not (Test-Command rc.exe)) {
   }
 }
 
-# Always enable Ninja response files and shorten object paths to avoid Windows command line limits
-$cmakeArgFixups += '-DCMAKE_NINJA_FORCE_RESPONSE_FILE=ON'
-# Respect CMake's minimum value (>=128)
-$cmakeArgFixups += '-DCMAKE_OBJECT_PATH_MAX=128'
-# Prefer PDB debug info to reduce path length pressure
-$cmakeArgFixups += '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase'
+# Ninja 专属的 CMake 修正，仅在 Ninja 预设下注入
+if ($Preset -like 'win-ninja*') {
+  # Always enable Ninja response files and shorten object paths to avoid Windows command line limits
+  $cmakeArgFixups += '-DCMAKE_NINJA_FORCE_RESPONSE_FILE=ON'
+  # Respect CMake's minimum value (>=128)
+  $cmakeArgFixups += '-DCMAKE_OBJECT_PATH_MAX=128'
+  # Prefer PDB debug info to reduce path length pressure
+  $cmakeArgFixups += '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=ProgramDatabase'
 
-# If sccache is available, use it as compiler launcher
-if (Test-Command sccache) {
-  $cmakeArgFixups += '-DCMAKE_C_COMPILER_LAUNCHER=sccache'
-  $cmakeArgFixups += '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache'
+  # Ensure all generated build systems use the Ninja wrapper (propagates into ExternalProject builds)
+  if (Test-Path ($global:NinjaWrapPath -replace '\\','/')) {
+    $cmakeArgFixups += ('-DCMAKE_MAKE_PROGRAM={0}' -f $global:NinjaWrapPath)
+  }
+
+  # If sccache is available, use it as compiler launcher
+  if (Test-Command sccache) {
+    $cmakeArgFixups += '-DCMAKE_C_COMPILER_LAUNCHER=sccache'
+    $cmakeArgFixups += '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache'
+  }
 }
 
 # Prefer TLS verify OFF only if explicitly requested upstream; keep conservative default here
@@ -658,6 +790,8 @@ switch ($effectivePreset) {
   'win-ninja-rel-out'    { $buildDir = Join-Path $PSScriptRoot "..\\..\\RS-build\\win-ninja-rel" }
   default                { $buildDir = Join-Path $PSScriptRoot "..\\..\\RS-build\\$Preset" }
 }
+# VS 预设的二进制目录由 CMakePresets 控制；为确保首次集成可用，强制执行一次配置
+if ($Preset -like 'vs17*') { $needsConfigure = $true }
 if (-not (Test-Path $buildDir)) { $needsConfigure = $true }
 elseif (-not (Test-Path (Join-Path $buildDir 'CMakeCache.txt'))) { $needsConfigure = $true }
 else {
@@ -700,21 +834,22 @@ if ($needsConfigure) {
     }
   }
   cmake @cfgArgs | Write-Host
-  # After configure, proactively inject selected -D defs into all ExternalProject initial caches
-  $defs = Get-ExtraDefsMap -Args $extraNorm
-  if ($BuildRoot) {
-    [void](Apply-DefsToInitialCaches -RootDir $binDir -Defs $defs)
-    # Purge any caches that still point to a different build root (e.g., 'RS-build')
-    [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'RS-build')
-    [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'RS\\\\-build')
-    [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'W/Slicer-build')
-    [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'W\\\\Slicer-build')
-  } else {
-    [void](Apply-DefsToInitialCaches -RootDir $buildDir -Defs $defs)
-    [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'RS-build')
-    [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'RS\\\\-build')
-    [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'W/Slicer-build')
-    [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'W\\\\Slicer-build')
+  # Ninja 专属：注入 -D 到各 ExternalProject 初始 cache，VS 生成器不需要
+  if ($effectivePreset -like 'win-ninja*') {
+    $defs = Get-ExtraDefsMap -Args $extraNorm
+    if ($BuildRoot) {
+      [void](Apply-DefsToInitialCaches -RootDir $binDir -Defs $defs)
+      [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'RS-build')
+      [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'RS\\\\-build')
+      [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'W/Slicer-build')
+      [void](Purge-InitialCachesByPattern -RootDir $binDir -Pattern 'W\\\\Slicer-build')
+    } else {
+      [void](Apply-DefsToInitialCaches -RootDir $buildDir -Defs $defs)
+      [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'RS-build')
+      [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'RS\\\\-build')
+      [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'W/Slicer-build')
+      [void](Purge-InitialCachesByPattern -RootDir $buildDir -Pattern 'W\\\\Slicer-build')
+    }
   }
 } else {
   Write-Host "Configure step skipped (use -ForceConfigure to reconfigure)."
@@ -726,15 +861,19 @@ if ($ConfigureOnly) {
   return
 }
 
-# Build using build preset (align with shared/out variants)
-if ($effectivePreset -like '*rel*') {
-  if ($effectivePreset -like '*shared*') { $buildPreset = 'build-rel-shared' }
-  elseif ($effectivePreset -like '*out*') { $buildPreset = 'build-rel-out' }
-  else { $buildPreset = 'build-rel' }
+# 选择构建 preset（VS 使用 vs17- 系列，其余沿用 Ninja 系列）
+if ($effectivePreset -like 'vs17*') {
+  $buildPreset = 'vs17-dev-rel'
 } else {
-  if ($effectivePreset -like '*shared*') { $buildPreset = 'build-dev-shared' }
-  elseif ($effectivePreset -like '*out*') { $buildPreset = 'build-dev-out' }
-  else { $buildPreset = 'build-dev' }
+  if ($effectivePreset -like '*rel*') {
+    if ($effectivePreset -like '*shared*') { $buildPreset = 'build-rel-shared' }
+    elseif ($effectivePreset -like '*out*') { $buildPreset = 'build-rel-out' }
+    else { $buildPreset = 'build-rel' }
+  } else {
+    if ($effectivePreset -like '*shared*') { $buildPreset = 'build-dev-shared' }
+    elseif ($effectivePreset -like '*out*') { $buildPreset = 'build-dev-out' }
+    else { $buildPreset = 'build-dev' }
+  }
 }
 
 # If BuildRoot is specified, override buildDir to point to custom binary dir
@@ -744,18 +883,20 @@ if ($BuildRoot) {
 }
 
 Write-Host "Building with preset '$buildPreset' (Jobs=$Jobs) ..." -ForegroundColor Green
-# Proactively ensure Python lib alias if already present
-[void](Ensure-PythonLibAliases -RootBuildDir $buildDir)
-# Sanitize initial caches for ExternalProject (response files, object path, policy minimum)
-# Always sanitize current build dir; also sanitize shared Slicer if in use.
-[void](Sanitize-UpstreamQtCache -SlicerBinDir $buildDir)
-# Also propagate top-level -D defs into EP initial caches before build
-$extraNorm = Normalize-ExtraArgs -Args $ExtraCMakeArgs
-$defs = Get-ExtraDefsMap -Args $extraNorm
-[void](Apply-DefsToInitialCaches -RootDir $buildDir -Defs $defs)
- # Ensure inner Slicer-build uses response files to avoid CreateProcess failures
- [void](Ensure-SlicerBuildResponseFiles -RootBuildDir $buildDir)
-if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { [void](Sanitize-UpstreamQtCache -SlicerBinDir $env:SLICER_BIN_DIR) }
+if ($effectivePreset -like 'win-ninja*') {
+  # Proactively ensure Python lib alias if already present
+  [void](Ensure-PythonLibAliases -RootBuildDir $buildDir)
+  # Sanitize initial caches for ExternalProject (response files, object path, policy minimum)
+  # Always sanitize current build dir; also sanitize shared Slicer if in use.
+  [void](Sanitize-UpstreamQtCache -SlicerBinDir $buildDir)
+  # Also propagate top-level -D defs into EP initial caches before build
+  $extraNorm = Normalize-ExtraArgs -Args $ExtraCMakeArgs
+  $defs = Get-ExtraDefsMap -Args $extraNorm
+  [void](Apply-DefsToInitialCaches -RootDir $buildDir -Defs $defs)
+   # Ensure inner Slicer-build uses response files to avoid CreateProcess failures
+   [void](Ensure-SlicerBuildResponseFiles -RootBuildDir $buildDir)
+  if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { [void](Sanitize-UpstreamQtCache -SlicerBinDir $env:SLICER_BIN_DIR) }
+}
 # If shared Slicer already fetched ExternalProject sources, proactively patch Teem probe
 if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) {
   $patched = Ensure-TeemQnanhibitPatched -SlicerBinDir $env:SLICER_BIN_DIR
@@ -766,10 +907,11 @@ if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) {
 }
 function Invoke-BuildOnce {
   param([string]$Dir,[string]$Preset,[int]$Jobs)
+  $nativeArgs = @('-w','dupbuild=warn')
   if ($Dir) {
-    if ($Jobs -gt 0) { cmake --build $Dir -- -j $Jobs | Write-Host } else { cmake --build $Dir | Write-Host }
+    if ($Jobs -gt 0) { cmake --build $Dir -- -j $Jobs @nativeArgs | Write-Host } else { cmake --build $Dir -- @nativeArgs | Write-Host }
   } else {
-    if ($Jobs -gt 0) { cmake --build --preset $Preset -- -j $Jobs | Write-Host } else { cmake --build --preset $Preset | Write-Host }
+    if ($Jobs -gt 0) { cmake --build --preset $Preset -- -j $Jobs @nativeArgs | Write-Host } else { cmake --build --preset $Preset -- @nativeArgs | Write-Host }
   }
 }
 
@@ -784,13 +926,21 @@ do {
   }
 } while($attempt -le $BuildRetries)
 
-if (-not $success -and $LASTEXITCODE -ne 0) {
+if (-not $success -and $LASTEXITCODE -ne 0 -and ($effectivePreset -like 'win-ninja*')) {
   # Attempt remediation for python3.lib and Qt backslash path, then retry once
   $fixed = Ensure-PythonLibAliases -RootBuildDir $buildDir
   if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { $fixed = (Sanitize-UpstreamQtCache -SlicerBinDir $env:SLICER_BIN_DIR) -or $fixed }
   # If using shared Slicer, prefer building there on short path instead of local Slicer-build
   $slicerBuildDir = $null
   if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) { $slicerBuildDir = $env:SLICER_BIN_DIR } else { $slicerBuildDir = Join-Path $buildDir 'Slicer-build' }
+
+  # Try to sanitize inner Ninja file to remove duplicate phony targets that cause
+  # 'multiple rules generate ...' errors (CompileSlicerPythonFiles, etc.)
+  try {
+    if ($slicerBuildDir -and (Test-Path $slicerBuildDir)) {
+      if (Fix-NinjaDuplicateAliases -SlicerBuildDir $slicerBuildDir) { $fixed = $true }
+    }
+  } catch {}
   # If Teem QNaN probe present, patch it and try building Teem target first
   if ($UseSharedSlicer -and $env:SLICER_BIN_DIR) {
     $didPatch = Ensure-TeemQnanhibitPatched -SlicerBinDir $env:SLICER_BIN_DIR
@@ -823,11 +973,10 @@ if (-not $success -and $LASTEXITCODE -ne 0) {
   }
   if ($fixed) {
     Write-Host "Retrying build after applying remediation..." -ForegroundColor Yellow
-    if ($Jobs -gt 0) {
-      cmake --build --preset $buildPreset -- -j $Jobs | Write-Host
-    } else {
-      cmake --build --preset $buildPreset | Write-Host
-    }
+    # Attempt to sanitize Ninja file for known duplicate alias before retry
+    try { [void](Fix-NinjaDuplicateAliases -SlicerBuildDir (Join-Path $buildDir 'Slicer-build')) } catch {}
+    # Always build by absolute binary dir to honor -BuildRoot overrides
+    Invoke-BuildOnce -Dir $buildDir -Jobs $Jobs
   }
 }
 
@@ -835,7 +984,23 @@ if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 
 if ($Package) {
   Write-Host "Packaging (target 'package') ..." -ForegroundColor Green
-  cmake --build $buildDir --target package | Write-Host
+  if ($effectivePreset -like 'vs17*') {
+    cmake --build --preset $buildPreset --target package | Write-Host
+  } else {
+    cmake --build $buildDir --target package | Write-Host
+  }
 }
 
 Write-Host "Done." -ForegroundColor Cyan
+# 稳定化下载（Git/SSH/并发）
+[switch]$StabilizeDownloads = $true,
+[switch]$SSHOver443
+)
+# 下载稳定化（可选，默认启用）
+if ($StabilizeDownloads) {
+  try {
+    & (Join-Path $PSScriptRoot 'Setup-DownloadStability.ps1') -Apply -UseGitSSHRewrite -GitHttp11 -GitMaxRequests 2 -GitCompression 0 -SSHOver443:$SSHOver443 | Out-Null
+  } catch {
+    Write-Warning ("下载稳定化步骤未成功: {0}" -f $_.Exception.Message)
+  }
+}

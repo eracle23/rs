@@ -35,36 +35,35 @@ Note: use short source and build directory names to avoid the [maximum path leng
 
 ## Build
 
-Note: The first full superbuild can take hours (Slicer + dependencies). The steps below prioritize modern tooling and incremental speed.
+首选 VS/MSBuild 构建（更稳、更少边角问题）。首轮 SuperBuild 可能耗时较长（Slicer + 依赖）。
 
-<b>Option 0 (Fast, Modern): Ninja + CMake Presets + sccache</b>
+<b>Option 0（推荐）：Visual Studio 2022 + CMake Presets</b>
 
-Prereqs: Visual Studio 2022 (C++), CMake 3.23+, Ninja, Git, optional sccache, NSIS for packaging.
+Prereqs: VS 2022（C++ 工作负载/Build Tools + Windows SDK）、CMake ≥ 3.27、Git、NSIS（打包）、Qt 5.15.2 msvc2019_64。
 
-- Install tools (recommended): VS 2022 with Desktop C++ workload, CMake, Ninja, NSIS 3.x, sccache.
-- Ensure Qt is installed and note its CMake path (e.g. `C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5`).
-
-Steps (from an “x64 Native Tools Command Prompt for VS 2022” or equivalent dev shell):
+- 一次性设置 Qt 路径（可选）：`pwsh Tools/Setup-BuildEnv.ps1 -QtCMakeDir C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5`
+- 配置与构建（多配置生成器，使用 RelWithDebInfo）：
 
 ```pwsh
-# In repo root (out-of-tree is default; artifacts in ../RS-build)
-pwsh Tools/Setup-BuildEnv.ps1 -QtCMakeDir C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5  # one-time
+# 配置（生成到 C:/S/vs-dev）
+cmake --preset vs17-dev
 
-# Dev build (RelWithDebInfo)
-pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-dev -Jobs 0
+# 构建
+cmake --build --preset vs17-dev-rel -- /m
 
-# Release build
-pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-rel -Jobs 0
+# 安装（聚合到 C:/S/rs-install）
+cmake --build --preset vs17-dev-rel --target install -- /m
 
-# Package (NSIS installer)
-pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-rel -Package
-
-# Use shared Slicer sources/build (env SLICER_SRC_DIR/SLICER_BIN_DIR or defaults C:\W\Slicer, C:\W\Slicer-build)
-pwsh Tools/Setup-SharedSlicer.ps1 -SetEnv   # one-time (clone + set env)
-pwsh Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-dev -UseSharedSlicer
+# 打包（NSIS 安装器）
+cmake --build C:/S/vs-dev/Slicer-build --config RelWithDebInfo --target PACKAGE -- /m
 ```
 
-This uses `CMakePresets.json` to configure Ninja builds with `BUILD_TESTING=OFF` and `sccache` (if available) for compiler caching.
+脚本等价用法：
+
+```pwsh
+pwsh Tools/Invoke-RadianceBuild.ps1 -Preset vs17-dev -Jobs 0
+pwsh Tools/Dev-Build-Ext.ps1 -Action build -Preset vs17-dev -Jobs 0
+```
 
 <b>Option 1: CMake GUI and Visual Studio</b>
 
@@ -85,6 +84,10 @@ cd RR
 cmake -G "Visual Studio 17 2022" -A x64 -DQt5_DIR:PATH=C:/Qt/${QT_VERSION}/${COMPILER}/lib/cmake/Qt5 ..\R
 cmake --build . --config Release -- /maxcpucount:4
 ```
+
+<b>Option 3（可选，CI/加速用）：Ninja + CMake Presets + sccache</b>
+
+仅在需要时使用（例如 CI）。日常开发不推荐 Ninja。参见 `CMakePresets.json` 中 `win-ninja-*` 预设，或脚本 `Tools/Invoke-RadianceBuild.ps1 -Preset win-ninja-dev`。
 
 ## Package
 
