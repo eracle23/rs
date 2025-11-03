@@ -38,12 +38,15 @@ set(APPLIB_NAME "q${PROJECT_NAME}")
 set(APPLIB_SRCS
   qRadianceAppMainWindow.cxx
   qRadianceAppMainWindow.h
+  Widgets/ThemeSync.cxx
+  Widgets/ThemeSync.h
   Widgets/qAppStyle.cxx
   Widgets/qAppStyle.h
   )
 
 set(APPLIB_MOC_SRCS
   qRadianceAppMainWindow.h
+  Widgets/ThemeSync.h
   Widgets/qAppStyle.h
   )
 

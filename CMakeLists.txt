@@ -50,7 +50,7 @@ set(Slicer_EXTENSIONS_DIRBASENAME "AliceExtensions" CACHE STRING "Extensions dir
 if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
   message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")
 endif()
-set(Slicer_DEFAULT_HOME_MODULE "Welcome")
+set(Slicer_DEFAULT_HOME_MODULE "Data" CACHE STRING "Default home module" FORCE)
 # 去掉自定义 Home 模块后，更新常用模块列表（不再包含 Home）
 set(Slicer_DEFAULT_FAVORITE_MODULES "Data, SegmentEditor, VolumeRendering, Transforms")
 
@@ -143,10 +143,8 @@ set(Slicer_QTSCRIPTEDMODULES_ENABLED
 # Disable Slicer built-in modules
 set(Slicer_CLIMODULES_DISABLED
   )
-set(Slicer_QTLOADABLEMODULES_DISABLED)
-# 启用内置 Welcome 模块，作为默认 Home 模块
-set(Slicer_QTSCRIPTEDMODULES_DISABLED
-  )
+set(Slicer_QTLOADABLEMODULES_DISABLED "SlicerWelcome" CACHE STRING "Disable Slicer-branded loadable modules" FORCE)
+set(Slicer_QTSCRIPTEDMODULES_DISABLED "SampleData" CACHE STRING "Disable Slicer-branded scripted modules" FORCE)
 
 # Enable/Disable Slicer custom modules: To create a new module, use the SlicerExtensionWizard.
 set(Slicer_EXTENSION_SOURCE_DIRS

@@ -18,6 +18,7 @@
 // Radiance includes
 #include "qRadianceAppMainWindow.h"
 #include "qRadianceAppMainWindow_p.h"
+#include "Widgets/ThemeSync.h"
 
 // Qt includes
 #include <QAction>
@@ -92,6 +93,13 @@ void qRadianceAppMainWindowPrivate::init()
 #endif
   Q_Q(qRadianceAppMainWindow);
   this->Superclass::init();
+  // Install brand theme synchronizer (shell-level, non-invasive)
+  // 延后到应用 startupCompleted 之后再创建 ThemeSync，避免早期样式变更引发模块加载期递归/风暴
+  QObject::connect(qSlicerApplication::application(), &qSlicerApplication::startupCompleted,
+                   q, [q]() {
+                     auto* sync = new ThemeSync(q);
+                     QTimer::singleShot(0, sync, SLOT(applyBranding()));
+                   });
 }
 
 //-----------------------------------------------------------------------------
@@ -114,6 +122,29 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   // to "QMetaObject::connectSlotsByName()" done in "setupUi()" to
   // successfully connect each slot with its corresponding action.
   this->Superclass::setupUi(mainWindow);
+
+  // Hide Slicer-branded help/links and Extensions Manager entry (shell only)
+  auto hideByName = [mainWindow](const char* name)
+  {
+    if (auto* a = mainWindow->findChild<QAction*>(name)) { a->setVisible(false); }
+  };
+  hideByName("HelpVisitSlicerForumAction");
+  hideByName("HelpReportBugOrFeatureRequestAction");
+  hideByName("HelpSlicerPublicationsAction");
+  hideByName("HelpAboutSlicerAppAction");
+  hideByName("ExtensionsManagerAction");
+
+  // Fallback: hide by action text containing keywords
+  const auto actions = mainWindow->findChildren<QAction*>();
+  for (auto* a : actions)
+    {
+    const QString t = a->text();
+    if (t.contains("Slicer", Qt::CaseInsensitive) ||
+        t.contains("Extensions Manager", Qt::CaseInsensitive))
+      {
+      a->setVisible(false);
+      }
+    }
 
   // Add Help Menu Action
   this->HelpMenu->clear();
