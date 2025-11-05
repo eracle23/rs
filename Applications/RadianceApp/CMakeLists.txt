@@ -100,3 +100,6 @@ slicerMacroBuildApplication(
   DEFAULT_SETTINGS_FILE Resources/Settings/DefaultSettings.ini
   ${extra_args}
   )
+
+# Build and install Windows association helper (per-user, default apps UI launcher)
+add_subdirectory(Utilities/AssocPrompt)

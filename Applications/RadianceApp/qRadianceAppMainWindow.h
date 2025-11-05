@@ -45,6 +45,8 @@ protected:
 private:
   Q_DECLARE_PRIVATE(qRadianceAppMainWindow);
   Q_DISABLE_COPY(qRadianceAppMainWindow);
+
+  void applyShellTweaks();
 };
 
 #endif

@@ -24,6 +24,12 @@ if(NOT DEFINED slicersources_BINARY_DIR)
   set(slicersources_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/slicersources-subbuild)
 endif()
 
+# Windows: 配置 NSIS/CPack 行为（不再修改上游 Slicer 源码）
+if(WIN32)
+  # 通过 CPack 工程配置文件在打包时注入/覆盖 Finish 页宏，避免与上游产生顺序冲突
+  set(CPACK_PROJECT_CONFIG_FILE "${CMAKE_SOURCE_DIR}/CMake/CPackProjectConfig.cmake")
+endif()
+
  # Note: Do not modify upstream Slicer sources; instead rely on cache
  # variables (e.g., `Slicer_EXTENSIONS_DIRBASENAME`) forwarded via
  # `mark_as_superbuild(...)` and normal add_subdirectory cache scoping.
@@ -65,6 +71,7 @@ mark_as_superbuild(EXTERNAL_PROJECT_ADDITIONAL_DIRS:STRING)
 mark_as_superbuild(CMAKE_INSTALL_PREFIX:PATH)
 mark_as_superbuild(Slicer_USE_SimpleITK:BOOL)
 mark_as_superbuild(Slicer_EXTENSION_INSTALL_DIRS:STRING)
+mark_as_superbuild(CPACK_PROJECT_CONFIG_FILE:FILEPATH)
 
 # Additional Slicer dependencies looked up in EXTERNAL_PROJECT_ADDITIONAL_DIR
 set(Slicer_ADDITIONAL_DEPENDENCIES

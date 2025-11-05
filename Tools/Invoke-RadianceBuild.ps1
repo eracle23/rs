@@ -1003,8 +1003,19 @@ if ($InnerOnly -and ($effectivePreset -like 'vs17*')) {
   } catch { Write-Warning ("Post-install fixup skipped: {0}" -f $_.Exception.Message) }
 
   if ($Package) {
-    Write-Host "Packaging after inner install ..." -ForegroundColor Green
-    cmake --build --preset vs17-dev-rel --target package | Write-Host
+    Write-Host "Packaging after inner install (CPack with Finish checkbox injection) ..." -ForegroundColor Green
+    $projCfgRoot = Join-Path $PSScriptRoot '..'
+    $projCfg = Join-Path $projCfgRoot 'CMake/CPackProjectConfig.cmake'
+    $innerSlicerBuild = Join-Path $buildDir 'Slicer-build'
+    if ((Test-Path $projCfg) -and (Test-Path $innerSlicerBuild)) {
+      Push-Location $innerSlicerBuild
+      try {
+        cpack -G NSIS -C $InnerConfig -D CPACK_PROJECT_CONFIG_FILE=$projCfg | Write-Host
+      } finally { Pop-Location }
+    } else {
+      # Fallback to VS preset if paths are unexpected
+      cmake --build --preset vs17-dev-rel --target package | Write-Host
+    }
   }
   Write-Host "Done." -ForegroundColor Cyan
   return
@@ -1111,11 +1122,22 @@ if (-not $success -and $LASTEXITCODE -ne 0 -and ($effectivePreset -like 'win-nin
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 
 if ($Package) {
-  Write-Host "Packaging (target 'package') ..." -ForegroundColor Green
-  if ($effectivePreset -like 'vs17*') {
-    cmake --build --preset $buildPreset --target package | Write-Host
+  Write-Host "Packaging (NSIS via CPack, with Finish checkbox injection) ..." -ForegroundColor Green
+  # Prefer running CPack directly so we can pass CPACK_PROJECT_CONFIG_FILE to force
+  # inclusion of custom Finish page macros (InstallerFinish.nsh) regardless of upstream defaults.
+  $projCfgRoot = Join-Path $PSScriptRoot '..'
+  $projCfg = Join-Path $projCfgRoot 'CMake/CPackProjectConfig.cmake'
+  if (-not (Test-Path $projCfg)) {
+    # Fallback to build 'package' if project config is missing
+    Write-Host "CPackProjectConfig.cmake not found; falling back to 'cmake --build --target package'" -ForegroundColor Yellow
+    if ($effectivePreset -like 'vs17*') { cmake --build --preset $buildPreset --target package | Write-Host } else { cmake --build $buildDir --target package | Write-Host }
   } else {
-    cmake --build $buildDir --target package | Write-Host
+    Push-Location $buildDir
+    try {
+      # Ensure install rules executed before packaging to avoid stale trees
+      if ($effectivePreset -like 'vs17*') { cmake --build --preset $buildPreset --target INSTALL | Write-Host } else { cmake --build $buildDir --target INSTALL | Write-Host }
+      cpack -G NSIS -C $InnerConfig -D CPACK_PROJECT_CONFIG_FILE=$projCfg | Write-Host
+    } finally { Pop-Location }
   }
 }
 

@@ -32,6 +32,7 @@
 #include <QLabel>
 #include <QList>
 #include <QMenu>
+#include <QMenuBar>
 #include <QPainter>
 #include <QPen>
 #include <QPixmap>
@@ -48,6 +49,8 @@
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QComboBox>
+#include <QDockWidget>
+#include <QKeySequence>
 #include <algorithm>
 #include <functional>
 #include <utility>
@@ -240,6 +243,9 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   //this->HelpMenu->setVisible(false);
 
   // 不追加全局样式，让 3D 控制条背景交由主题样式处理。
+
+  // 统一进行壳层净化与默认显示调整
+  q->applyShellTweaks();
 }
 
 //-----------------------------------------------------------------------------
@@ -294,6 +300,89 @@ void qRadianceAppMainWindow::on_HelpAboutRadianceAppAction_triggered()
 
   about.setLogo(brandPixmap);
   about.exec();
+}
+
+//-----------------------------------------------------------------------------
+// 工具函数（仅在本翻译单元可见）
+static void hideAndDisableAction(QAction* a)
+{
+  if (!a) return;
+  a->setVisible(false);
+  a->setEnabled(false);
+  a->setShortcuts({});
+  a->setShortcut(QKeySequence());
+  a->setMenuRole(QAction::NoRole);
+}
+
+static void hideActionByName(QWidget* root, const char* name)
+{
+  if (auto a = root->findChild<QAction*>(name))
+    {
+    hideAndDisableAction(a);
+    }
+}
+
+static void hideActionsContainingText(QMainWindow* mw, std::initializer_list<QString> needles)
+{
+  if (!mw || !mw->menuBar()) return;
+  const auto menus = mw->menuBar()->findChildren<QMenu*>();
+  for (auto* m : menus)
+    {
+    for (auto* a : m->actions())
+      {
+      const QString t = a->text();
+      for (const auto& needle : needles)
+        {
+        if (t.contains(needle, Qt::CaseInsensitive))
+          {
+          hideAndDisableAction(a);
+          break;
+          }
+        }
+      }
+    }
+}
+
+//-----------------------------------------------------------------------------
+void qRadianceAppMainWindow::applyShellTweaks()
+{
+  // Help 菜单净化（隐藏 About/Docs/Tutorials/Acknowledgments/Feedback 等）
+  hideActionByName(this, "HelpReportBugOrFeatureRequestAction");
+  hideActionByName(this, "HelpSearchFeatureRequestsAction");
+  hideActionByName(this, "HelpDocumentationAction");
+  hideActionByName(this, "HelpBrowseTutorialsAction");
+  hideActionByName(this, "HelpAcknowledgmentsAction");
+  hideActionByName(this, "HelpAboutSlicerAppAction");
+
+  // 文本兜底（跨版本/翻译差异）
+  hideActionsContainingText(this, { "Documentation", "Tutorial", "Acknowledg", "About", "Feedback", "Report Bug", "Feature Request" });
+
+  // 隐藏 Python Console / Interactor 及 Error Log（含快捷键禁用）
+  const char* pythonActionNames[] = {
+    "ViewPythonInteractorAction",
+    "ViewPythonConsoleAction",
+    "WindowPythonInteractorAction",
+    "WindowPythonConsoleAction"
+  };
+  for (auto n : pythonActionNames)
+    {
+    hideActionByName(this, n);
+    }
+  hideActionByName(this, "WindowErrorLogAction");
+  hideActionsContainingText(this, { "Python Interactor", "Python Console", "Error Log" });
+
+  // 首页左侧栏显示 Data：首次显示窗口时切换到 Data，并确保左侧面板可见
+  QObject::connect(this, &qSlicerMainWindow::initialWindowShown, this, [this]() {
+    if (auto selector = this->moduleSelector())
+      {
+      selector->selectModule("Data");
+      }
+    if (auto panel = this->findChild<QDockWidget*>("PanelDockWidget"))
+      {
+      panel->show();
+      panel->raise();
+      }
+  });
 }
 
 //-----------------------------------------------------------------------------
