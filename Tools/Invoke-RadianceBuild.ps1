@@ -1007,6 +1007,16 @@ if ($InnerOnly -and ($effectivePreset -like 'vs17*')) {
     $projCfgRoot = Join-Path $PSScriptRoot '..'
     $projCfg = Join-Path $projCfgRoot 'CMake/CPackProjectConfig.cmake'
     $innerSlicerBuild = Join-Path $buildDir 'Slicer-build'
+    $cpackStageRoots = @(
+      (Join-Path $innerSlicerBuild '_CPack_Packages'),
+      (Join-Path $buildDir '_CPack_Packages')
+    ) | Sort-Object -Unique
+    foreach ($stage in $cpackStageRoots) {
+      if ($stage -and (Test-Path $stage)) {
+        Write-Host ("Cleaning stale CPack staging: {0}" -f $stage) -ForegroundColor Yellow
+        try { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop } catch { Write-Warning ("Failed to clean {0}: {1}" -f $stage,$_.Exception.Message) }
+      }
+    }
     if ((Test-Path $projCfg) -and (Test-Path $innerSlicerBuild)) {
       Push-Location $innerSlicerBuild
       try {
@@ -1127,6 +1137,16 @@ if ($Package) {
   # inclusion of custom Finish page macros (InstallerFinish.nsh) regardless of upstream defaults.
   $projCfgRoot = Join-Path $PSScriptRoot '..'
   $projCfg = Join-Path $projCfgRoot 'CMake/CPackProjectConfig.cmake'
+  $cpackStageRoots = @(
+    (Join-Path $buildDir '_CPack_Packages'),
+    (Join-Path (Join-Path $buildDir 'Slicer-build') '_CPack_Packages')
+  ) | Sort-Object -Unique
+  foreach ($stage in $cpackStageRoots) {
+    if ($stage -and (Test-Path $stage)) {
+      Write-Host ("Cleaning stale CPack staging: {0}" -f $stage) -ForegroundColor Yellow
+      try { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop } catch { Write-Warning ("Failed to clean {0}: {1}" -f $stage,$_.Exception.Message) }
+    }
+  }
   if (-not (Test-Path $projCfg)) {
     # Fallback to build 'package' if project config is missing
     Write-Host "CPackProjectConfig.cmake not found; falling back to 'cmake --build --target package'" -ForegroundColor Yellow

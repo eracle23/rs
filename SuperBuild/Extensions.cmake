@@ -28,6 +28,22 @@ if(DEFINED Slicer_DIR AND NOT "${Slicer_DIR}" STREQUAL "" AND EXISTS "${Slicer_D
     get_filename_component(_rs_superbuild_root "${_rs_superbuild_root}" DIRECTORY) # superbuild root
   endif()
 
+  set(_rs_slicer_src "")
+  if(_rs_superbuild_root)
+    set(_rs_slicer_src_candidates
+      "${_rs_superbuild_root}/slicersources-src"
+      "${_rs_superbuild_root}/../slicersources-src"
+      "${CMAKE_BINARY_DIR}/../slicersources-src"
+      "${CMAKE_BINARY_DIR}/../../slicersources-src"
+    )
+    foreach(_p IN LISTS _rs_slicer_src_candidates)
+      if(_p AND EXISTS "${_p}/CMakeLists.txt")
+        set(_rs_slicer_src "${_p}")
+        break()
+      endif()
+    endforeach()
+  endif()
+
   # 1) Locate CTK_DIR and include UseCTK for macro availability.
   if(NOT DEFINED CTK_DIR)
     set(_rs_ctk_candidates
@@ -109,6 +125,51 @@ if(DEFINED Slicer_DIR AND NOT "${Slicer_DIR}" STREQUAL "" AND EXISTS "${Slicer_D
       list(APPEND CMAKE_MODULE_PATH "${SlicerExecutionModel_SOURCE_DIR}/CMake")
       include("${SlicerExecutionModel_SOURCE_DIR}/CMake/SEMMacroBuildCLI.cmake" OPTIONAL)
       include("${SlicerExecutionModel_SOURCE_DIR}/CMake/SEMFunctionAddExecutable.cmake" OPTIONAL)
+    endif()
+  endif()
+
+  # 3) Locate CTKAppLauncher so extensions using launcher macros can configure.
+  if(NOT DEFINED CTKAppLauncher_DIR)
+    set(_rs_launcher_candidates
+      "$ENV{CTKAppLauncher_DIR}"
+      "$ENV{CTKAppLauncherLib_DIR}"
+      "${_rs_superbuild_root}/CTKAppLauncher-build"
+      "${_rs_superbuild_root}/CTKAppLauncherLib-build"
+      "${_rs_superbuild_root}/../CTKAppLauncher-build"
+      "${_rs_superbuild_root}/../CTKAppLauncherLib-build"
+      "${CMAKE_BINARY_DIR}/../CTKAppLauncher-build"
+      "${CMAKE_BINARY_DIR}/../../CTKAppLauncher-build"
+    )
+    foreach(_p IN LISTS _rs_launcher_candidates)
+      if(_p)
+        if(EXISTS "${_p}/CTKAppLauncherConfig.cmake")
+          set(CTKAppLauncher_DIR "${_p}" CACHE PATH "CTKAppLauncher build tree" FORCE)
+          break()
+        elseif(EXISTS "${_p}/CTKAppLauncherLibConfig.cmake")
+          set(CTKAppLauncher_DIR "${_p}" CACHE PATH "CTKAppLauncherLib build tree" FORCE)
+          break()
+        endif()
+      endif()
+    endforeach()
+  endif()
+  if(CTKAppLauncher_DIR)
+    list(APPEND CMAKE_PREFIX_PATH "${CTKAppLauncher_DIR}")
+  endif()
+
+  # 4) Backfill Slicer extension helper variables commonly missing in the
+  #    trimmed SlicerConfig exported under Slicer-build/E.
+  if(_rs_slicer_src)
+    set(_rs_ext_gen "${_rs_slicer_src}/CMake/SlicerExtensionGenerateConfig.cmake")
+    set(_rs_ext_cpack "${_rs_slicer_src}/CMake/SlicerExtensionCPack.cmake")
+    set(_rs_py_templates "${_rs_slicer_src}/Base/QTCore/Testing/Python")
+    if(NOT Slicer_EXTENSION_GENERATE_CONFIG AND EXISTS "${_rs_ext_gen}")
+      set(Slicer_EXTENSION_GENERATE_CONFIG "${_rs_ext_gen}" CACHE FILEPATH "Path to SlicerExtensionGenerateConfig.cmake" FORCE)
+    endif()
+    if(NOT Slicer_EXTENSION_CPACK AND EXISTS "${_rs_ext_cpack}")
+      set(Slicer_EXTENSION_CPACK "${_rs_ext_cpack}" CACHE FILEPATH "Path to SlicerExtensionCPack.cmake" FORCE)
+    endif()
+    if(NOT Slicer_PYTHON_MODULE_TEST_TEMPLATES_DIR AND EXISTS "${_rs_py_templates}")
+      set(Slicer_PYTHON_MODULE_TEST_TEMPLATES_DIR "${_rs_py_templates}" CACHE PATH "Slicer scripted module test templates" FORCE)
     endif()
   endif()
 
