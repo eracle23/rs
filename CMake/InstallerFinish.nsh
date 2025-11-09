@@ -13,7 +13,7 @@
 
 ; 2) Checkbox text & default unchecked
 !ifndef MUI_FINISHPAGE_RUN_TEXT
-  !define MUI_FINISHPAGE_RUN_TEXT "将 *.mrml/*.mrb 设为默认由 Alice 打开"
+  !define MUI_FINISHPAGE_RUN_TEXT "Set this for .mrml/.mrb as default"
 !endif
 !define MUI_FINISHPAGE_RUN_NOTCHECKED
 

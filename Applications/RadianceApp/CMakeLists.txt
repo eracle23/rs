@@ -55,6 +55,7 @@ set(APPLIB_UI_SRCS
 
 set(APPLIB_RESOURCES
   Resources/App.qrc
+  Resources/ToolbarIcons.qrc
   )
 
 slicerMacroBuildAppLibrary(
@@ -104,12 +105,29 @@ slicerMacroBuildApplication(
 # Ensure the GUI launcher with patched icon (AliceW.exe) is always generated
 # before we attempt to install/package it. Otherwise CPack may fail with
 # “file INSTALL cannot find …/CMakeFiles/AliceW.exe”.
-if(WIN32 AND TARGET ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
+if(WIN32)
   set(_launcher_artifacts_target "${SLICERAPP_APPLICATION_NAME}LauncherArtifacts")
-  add_custom_target(${_launcher_artifacts_target} ALL
-    DEPENDS ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
-  set_target_properties(${_launcher_artifacts_target} PROPERTIES
-    FOLDER ${${PROJECT_NAME}_FOLDER})
+  if(TARGET ${_launcher_artifacts_target})
+    # already defined elsewhere (unlikely), keep existing definition
+  else()
+    add_custom_target(${_launcher_artifacts_target} ALL)
+    set_target_properties(${_launcher_artifacts_target} PROPERTIES
+      FOLDER ${${PROJECT_NAME}_FOLDER})
+  endif()
+
+  if(TARGET ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
+    add_dependencies(${_launcher_artifacts_target} ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
+  elseif(TARGET UpdateLauncherWIcon) # fallback for legacy naming
+    add_dependencies(${_launcher_artifacts_target} UpdateLauncherWIcon)
+  else()
+    message(WARNING
+      "No launcher icon patch target found (expected ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon). "
+      "Installer may contain unpatched launcher icons.")
+  endif()
+
+  if(TARGET package)
+    add_dependencies(package ${_launcher_artifacts_target})
+  endif()
 endif()
 
 # Ensure packaged installs ship scripted modules by injecting launcher-side search paths.

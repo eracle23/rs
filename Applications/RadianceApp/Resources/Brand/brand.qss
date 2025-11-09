@@ -27,3 +27,16 @@ QToolTip {
   border: 1px solid palette(dark);
 }
 
+qMRMLViewControllerBar QWidget#BarWidget {
+  color: palette(window-text);
+}
+
+qMRMLViewControllerBar QLabel#ViewLabel {
+  color: palette(highlighted-text);
+  font-weight: 600;
+  background-color: transparent;
+}
+
+qMRMLViewControllerBar QToolButton {
+  color: palette(highlighted-text);
+}

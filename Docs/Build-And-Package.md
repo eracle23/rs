@@ -11,7 +11,7 @@
 
 1. **CPack 报 `file INSTALL cannot find …/CMakeFiles/AliceW.exe`**
    * 原因：GUI 启动器 `AliceW.exe` 由 `AliceUpdateLauncherWIcon` 自定义目标生成，`PACKAGE` 前并不保证构建。
-   * 解决：在 `Applications/RadianceApp/CMakeLists.txt` 增加 `AliceLauncherArtifacts (ALL)` 依赖 `UpdateLauncherWIcon`，或手工先构建该目标。
+   * 解决：在 `Applications/RadianceApp/CMakeLists.txt` 增加 `AliceLauncherArtifacts (ALL)` 依赖 `AliceUpdateLauncherWIcon`（兼容旧目标名时再 fallback），或手工先构建该目标。
 
 2. **扩展在 inner（`Slicer-build/E`）配置失败：`include(${Slicer_EXTENSION_GENERATE_CONFIG})` 等变量为空**
    * 原因：`E/SlicerConfig.cmake` 是精简版，不导出 `Slicer_EXTENSION_*`、`Slicer_PYTHON_MODULE_TEST_TEMPLATES_DIR` 等。
@@ -206,12 +206,22 @@ _bundle_ext(LandmarkRegistration https://github.com/SlicerIGT/LandmarkRegistrati
 ## 常见故障排查
 
 * **CPack 提示 `file INSTALL cannot find .../AliceW.exe`**
-  * 解决：保证生成 `AliceW.exe` 的目标在打包前执行，例如新增：
+  * 解决：保证 `AliceUpdateLauncherWIcon` 先于打包执行，可使用下列片段（同时兼容旧目标名，并让 `package` 目标也依赖它）：
 
     ```cmake
-    if(WIN32 AND TARGET ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
-      add_custom_target(${SLICERAPP_APPLICATION_NAME}LauncherArtifacts ALL
-        DEPENDS ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
+    if(WIN32)
+      set(_launcher_artifacts_target "${SLICERAPP_APPLICATION_NAME}LauncherArtifacts")
+      if(NOT TARGET ${_launcher_artifacts_target})
+        add_custom_target(${_launcher_artifacts_target} ALL)
+      endif()
+      if(TARGET ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
+        add_dependencies(${_launcher_artifacts_target} ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
+      elseif(TARGET UpdateLauncherWIcon) # legacy name
+        add_dependencies(${_launcher_artifacts_target} UpdateLauncherWIcon)
+      endif()
+      if(TARGET package)
+        add_dependencies(package ${_launcher_artifacts_target})
+      endif()
     endif()
     ```
 

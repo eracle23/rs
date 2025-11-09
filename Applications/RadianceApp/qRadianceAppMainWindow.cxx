@@ -28,6 +28,7 @@
 #include <QDesktopServices>
 #include <QDesktopWidget>
 #include <QFont>
+#include <QHash>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QList>
@@ -37,6 +38,7 @@
 #include <QPen>
 #include <QPixmap>
 #include <QSize>
+#include <QStringList>
 #include <QStandardItem>
 #include <QStandardItemModel>
 #include <QTimer>
@@ -53,6 +55,7 @@
 #include <QKeySequence>
 #include <algorithm>
 #include <functional>
+#include <initializer_list>
 #include <utility>
 
 // Slicer includes
@@ -75,6 +78,207 @@
 // CTK includes
 #include <ctkMenuComboBox.h>
 #include <ctkSettingsDialog.h>
+namespace
+{
+
+QString normalizedKey(const QString& source)
+{
+  QString key;
+  key.reserve(source.size());
+  for (const QChar& ch : source)
+    {
+    if (ch.isLetterOrNumber())
+      {
+      key.append(ch.toLower());
+      }
+    }
+  return key;
+}
+
+QIcon radianceToolbarIcon(const char* alias)
+{
+  if (!alias || *alias == '\0')
+    {
+    return QIcon();
+    }
+  return QIcon(QStringLiteral(":/RadianceToolbar/") + QLatin1String(alias));
+}
+
+QIcon moduleIconOverride(const QString& moduleName)
+{
+  const QString key = normalizedKey(moduleName);
+  if (key.isEmpty())
+    {
+    return QIcon();
+    }
+
+  static const QHash<QString, const char*> moduleIconMap{
+    {QStringLiteral("home"), "toolbar_home.svg"},
+    {QStringLiteral("welcome"), "toolbar_home.svg"},
+    {QStringLiteral("radiancehome"), "toolbar_home.svg"},
+    {QStringLiteral("data"), "toolbar_data.svg"},
+    {QStringLiteral("volumes"), "toolbar_volumes.svg"},
+    {QStringLiteral("volume"), "toolbar_volumes.svg"},
+    {QStringLiteral("sampledata"), "toolbar_data.svg"},
+    {QStringLiteral("dicom"), "toolbar_dicom.svg"},
+    {QStringLiteral("dicombrowser"), "toolbar_dicom.svg"},
+    {QStringLiteral("segmenteditor"), "toolbar_segment.svg"},
+    {QStringLiteral("segmentations"), "toolbar_segment.svg"},
+    {QStringLiteral("segmentstatistics"), "toolbar_segment.svg"},
+    {QStringLiteral("volumerendering"), "toolbar_render.svg"},
+    {QStringLiteral("volumerender"), "toolbar_render.svg"},
+    {QStringLiteral("rendering"), "toolbar_render.svg"},
+    {QStringLiteral("settings"), "toolbar_settings.svg"},
+    {QStringLiteral("applicationsettings"), "toolbar_settings.svg"},
+    {QStringLiteral("preferences"), "toolbar_settings.svg"}
+  };
+
+  const auto it = moduleIconMap.constFind(key);
+  if (it != moduleIconMap.constEnd())
+    {
+    return radianceToolbarIcon(*it);
+    }
+  return QIcon();
+}
+
+struct ActionIconRule
+{
+  const char* iconAlias;
+  std::initializer_list<const char*> needles;
+};
+
+const QHash<QString, const char*>& actionIconObjectMap()
+{
+  static const QHash<QString, const char*> map{
+    {QStringLiteral("fileadddataaction"), "toolbar_add_data.svg"},
+    {QStringLiteral("fileloaddataaction"), "toolbar_add_data.svg"},
+    {QStringLiteral("fileimportsceneaction"), "toolbar_add_data.svg"},
+    {QStringLiteral("fileloadsceneaction"), "toolbar_add_data.svg"},
+    {QStringLiteral("fileaddvolumeaction"), "toolbar_add_data.svg"},
+    {QStringLiteral("fileaddtransformaction"), "toolbar_add_data.svg"},
+    {QStringLiteral("filefavoritemodulesaction"), "toolbar_data.svg"},
+    {QStringLiteral("loaddicomaction"), "toolbar_dicom.svg"},
+    {QStringLiteral("filesavesceneaction"), "toolbar_save.svg"},
+    {QStringLiteral("sdbsavetodirectoryaction"), "toolbar_save.svg"},
+    {QStringLiteral("sdbsavetomrbaction"), "toolbar_save.svg"},
+    {QStringLiteral("editundoaction"), "toolbar_undo.svg"},
+    {QStringLiteral("editredoaction"), "toolbar_redo.svg"},
+    {QStringLiteral("modulehomeaction"), "toolbar_home.svg"},
+    {QStringLiteral("editapplicationsettingsaction"), "toolbar_settings.svg"},
+    {QStringLiteral("viewextensionsmanageraction"), "toolbar_extensions.svg"},
+    {QStringLiteral("adjustviewaction"), "toolbar_view_control.svg"},
+    {QStringLiteral("adjustwindowlevelaction"), "toolbar_window_level.svg"},
+    {QStringLiteral("placewidgetaction"), "toolbar_place.svg"},
+    {QStringLiteral("toolbaraction"), "toolbar_place.svg"},
+    {QStringLiteral("placewidgettoolbaraction"), "toolbar_place.svg"}
+  };
+  return map;
+}
+
+QIcon actionIconOverride(QAction* action)
+{
+  if (!action)
+    {
+    return QIcon();
+    }
+
+  const QStringList haystacks{
+    action->objectName(),
+    action->text(),
+    action->toolTip(),
+    action->iconText(),
+    action->whatsThis(),
+    action->statusTip()
+  };
+
+  const QString objectKey = normalizedKey(action->objectName());
+  if (!objectKey.isEmpty())
+    {
+    const char* alias = actionIconObjectMap().value(objectKey, nullptr);
+    if (alias)
+      {
+      return radianceToolbarIcon(alias);
+      }
+    }
+
+  QStringList normalizedHaystacks;
+  normalizedHaystacks.reserve(haystacks.size());
+  for (const QString& field : haystacks)
+    {
+    normalizedHaystacks << normalizedKey(field);
+    }
+
+  auto matches = [&haystacks, &normalizedHaystacks](const char* needle) -> bool
+    {
+      if (!needle || *needle == '\0')
+        {
+        return false;
+        }
+      const QString needleStr = QString::fromUtf8(needle);
+      const QString needleNormalized = normalizedKey(needleStr);
+      for (int i = 0; i < haystacks.size(); ++i)
+        {
+        const QString& field = haystacks.at(i);
+        if (!field.isEmpty() && field.contains(needleStr, Qt::CaseInsensitive))
+          {
+          return true;
+          }
+        if (!needleNormalized.isEmpty())
+          {
+          const QString& normalizedField = normalizedHaystacks.at(i);
+          if (!normalizedField.isEmpty() && normalizedField.contains(needleNormalized))
+            {
+            return true;
+            }
+          }
+        }
+      return false;
+    };
+
+  static const ActionIconRule kActionIconRules[] = {
+    {"toolbar_add_data.svg", {
+      "add data", "open data", "load data", "import scene", "load scene",
+      "adddataset", "addvolume", "add transform", "addtransform",
+      u8"添加数据", u8"加载数据", u8"导入场景", u8"加载场景", u8"添加体数据", u8"添加变换"
+    }},
+    {"toolbar_dicom.svg", {"dicom", u8"DICOM", u8"影像"}},
+    {"toolbar_save.svg", {
+      "save scene", "savescene", "save data", "savedata",
+      u8"保存", u8"保存场景", u8"保存数据"
+    }},
+    {"toolbar_undo.svg", {"undo", u8"撤销"}},
+    {"toolbar_redo.svg", {"redo", u8"重做"}},
+    {"toolbar_snapshot.svg", {
+      "screenshot", "screen capture", "capture view", "snapshot",
+      u8"截图", u8"屏幕截图", u8"抓图", u8"捕获视图"
+    }},
+    {"toolbar_scene_view.svg", {"scene view", "sceneview", u8"场景视图", u8"场景快照"}},
+    {"toolbar_extensions.svg", {"extension", "extensions manager", "extension manager", u8"扩展"}},
+    {"toolbar_layout.svg", {"layout", u8"布局", u8"视图布局"}},
+    {"toolbar_view_control.svg", {"adjust view", "view transform", "view navigation", u8"视图控制", u8"视图调整"}},
+    {"toolbar_window_level.svg", {"window/level", "window level", "windowlevel", u8"窗宽", u8"窗位"}},
+    {"toolbar_place.svg", {"place", "markups", "fiducial", "annotation", u8"放置", u8"标记"}},
+    {"toolbar_crosshair.svg", {"crosshair", u8"十字光标", u8"十字线"}},
+    {"toolbar_home.svg", {"home", u8"主页"}},
+    {"toolbar_settings.svg", {"settings", "preferences", "appearance", u8"设置", u8"首选项"}}
+  };
+
+  for (const ActionIconRule& rule : kActionIconRules)
+    {
+    for (const char* needle : rule.needles)
+      {
+      if (matches(needle))
+        {
+        return radianceToolbarIcon(rule.iconAlias);
+        }
+      }
+    }
+
+  return QIcon();
+}
+
+} // namespace
+
 //-----------------------------------------------------------------------------
 // qRadianceAppMainWindowPrivate methods
 
@@ -343,6 +547,22 @@ static void hideActionsContainingText(QMainWindow* mw, std::initializer_list<QSt
     }
 }
 
+static void hideDockWidgetByName(QMainWindow* mw, const char* name)
+{
+  if (!mw)
+    {
+    return;
+    }
+  if (auto* dock = mw->findChild<QDockWidget*>(name))
+    {
+    dock->hide();
+    dock->setVisible(false);
+    dock->setEnabled(false);
+    dock->setAllowedAreas(Qt::NoDockWidgetArea);
+    dock->setFeatures(QDockWidget::NoDockWidgetFeatures);
+    }
+}
+
 //-----------------------------------------------------------------------------
 void qRadianceAppMainWindow::applyShellTweaks()
 {
@@ -370,6 +590,8 @@ void qRadianceAppMainWindow::applyShellTweaks()
     }
   hideActionByName(this, "WindowErrorLogAction");
   hideActionsContainingText(this, { "Python Interactor", "Python Console", "Error Log" });
+  hideDockWidgetByName(this, "PythonConsoleDockWidget");
+  hideDockWidgetByName(this, "ErrorLogDockWidget");
 
   // 首页左侧栏显示 Data：首次显示窗口时切换到 Data，并确保左侧面板可见
   QObject::connect(this, &qSlicerMainWindow::initialWindowShown, this, [this]() {
@@ -425,6 +647,12 @@ void qRadianceAppMainWindowPrivate::applyToolbarBranding()
                 });
             });
           }
+        continue;
+        }
+      const QIcon overrideIcon = actionIconOverride(action);
+      if (!overrideIcon.isNull())
+        {
+        action->setIcon(overrideIcon);
         continue;
         }
       const QIcon originalIcon = action->icon();
@@ -746,7 +974,11 @@ QIcon qRadianceAppMainWindowPrivate::brandModuleByName(const QString& moduleName
     return QIcon();
     }
 
-  QIcon brandedIcon = this->createModuleIcon(module->icon(), accentColor);
+  QIcon brandedIcon = moduleIconOverride(moduleName);
+  if (brandedIcon.isNull())
+    {
+    brandedIcon = this->createModuleIcon(module->icon(), accentColor);
+    }
   if (QAction* moduleAction = module->action())
     {
     moduleAction->setIcon(brandedIcon);

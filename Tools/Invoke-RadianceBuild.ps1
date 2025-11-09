@@ -1006,10 +1006,10 @@ if ($InnerOnly -and ($effectivePreset -like 'vs17*')) {
     Write-Host "Packaging after inner install (CPack with Finish checkbox injection) ..." -ForegroundColor Green
     $projCfgRoot = Join-Path $PSScriptRoot '..'
     $projCfg = Join-Path $projCfgRoot 'CMake/CPackProjectConfig.cmake'
-    $innerSlicerBuild = Join-Path $buildDir 'Slicer-build'
+    $innerSlicerBuild = $innerBin
     $cpackStageRoots = @(
       (Join-Path $innerSlicerBuild '_CPack_Packages'),
-      (Join-Path $buildDir '_CPack_Packages')
+      (Join-Path $topBin '_CPack_Packages')
     ) | Sort-Object -Unique
     foreach ($stage in $cpackStageRoots) {
       if ($stage -and (Test-Path $stage)) {
@@ -1023,8 +1023,9 @@ if ($InnerOnly -and ($effectivePreset -like 'vs17*')) {
         cpack -G NSIS -C $InnerConfig -D CPACK_PROJECT_CONFIG_FILE=$projCfg | Write-Host
       } finally { Pop-Location }
     } else {
-      # Fallback to VS preset if paths are unexpected
-      cmake --build --preset vs17-dev-rel --target package | Write-Host
+      # Fallback: drive PACKAGE target directly inside inner Slicer-build
+      $innerPath = ($innerSlicerBuild -replace "\\","/")
+      cmake --build $innerPath --config $InnerConfig --target PACKAGE | Write-Host
     }
   }
   Write-Host "Done." -ForegroundColor Cyan

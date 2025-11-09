@@ -9,6 +9,18 @@ set(MODULE_PYTHON_SCRIPTS
 set(MODULE_PYTHON_RESOURCES
   Resources/Icons/${MODULE_NAME}.png
   Resources/Icons/Gears.png
+  Resources/Icons/Toolbar/toolbar_home.svg
+  Resources/Icons/Toolbar/toolbar_data.svg
+  Resources/Icons/Toolbar/toolbar_segment.svg
+  Resources/Icons/Toolbar/toolbar_render.svg
+  Resources/Icons/Toolbar/toolbar_settings.svg
+  Resources/Icons/Toolbar/toolbar_add_data.svg
+  Resources/Icons/Toolbar/toolbar_dicom.svg
+  Resources/Icons/Toolbar/toolbar_save.svg
+  Resources/Icons/Toolbar/toolbar_undo.svg
+  Resources/Icons/Toolbar/toolbar_redo.svg
+  Resources/Icons/Toolbar/toolbar_snapshot.svg
+  Resources/Icons/Toolbar/toolbar_layout.svg
   Resources/Layouts/RadianceWorkspace.xml
   Resources/UI/${MODULE_NAME}.ui
   Resources/UI/Settings.ui

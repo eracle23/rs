@@ -47,6 +47,7 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         return [str(k) for k in self._toolbars]
 
     _toolbars: dict[str, qt.QToolBar] = {}
+    _toolbar_icons: dict[str, qt.QIcon] = {}
 
     def __init__(self, parent: Optional[qt.QWidget]):
         """Called when the application opens the module the first time and the widget is initialized."""
@@ -67,6 +68,7 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         # Create logic class
         self.logic = HomeLogic()
+        self._toolbar_icons = self._load_toolbar_icons()
 
         self.customLayoutId = self.logic.register_workspace_layout(
             self.resourcePath("Layouts/RadianceWorkspace.xml")
@@ -137,14 +139,12 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         """Create toolbar hosting shortcut actions for primary workflows"""
         navigationToolBar = self.insertToolBar("MainToolBar", "NavigationToolBar", title="Navigation")
         navigationToolBar.setToolButtonStyle(qt.Qt.ToolButtonTextUnderIcon)
-        navigationToolBar.setIconSize(qt.QSize(32, 32))
-
-        style = slicer.util.mainWindow().style()
+        navigationToolBar.setIconSize(qt.QSize(36, 36))
         actions = [
-            ("Home", qt.QIcon(self.resourcePath("Icons/Home.png")), lambda: slicer.util.selectModule("Home")),
-            ("Data", style.standardIcon(qt.QStyle.SP_DirOpenIcon), lambda: slicer.util.selectModule("Data")),
-            ("Segment", style.standardIcon(qt.QStyle.SP_DialogApplyButton), lambda: slicer.util.selectModule("SegmentEditor")),
-            ("Render", style.standardIcon(qt.QStyle.SP_FileDialogDetailedView), lambda: slicer.util.selectModule("VolumeRendering")),
+            ("Home", self.toolbarIcon("home"), lambda: slicer.util.selectModule("Home")),
+            ("Data", self.toolbarIcon("data"), lambda: slicer.util.selectModule("Data")),
+            ("Segment", self.toolbarIcon("segment"), lambda: slicer.util.selectModule("SegmentEditor")),
+            ("Render", self.toolbarIcon("render"), lambda: slicer.util.selectModule("VolumeRendering")),
         ]
 
         for text, icon, callback in actions:
@@ -218,9 +218,11 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def initializeSettingsToolBar(self):
         """Create toolbar and dialog for app settings"""
         settingsToolBar = self.insertToolBar("MainToolBar", "SettingsToolBar", title="Settings")
+        settingsToolBar.setToolButtonStyle(qt.Qt.ToolButtonTextUnderIcon)
+        settingsToolBar.setIconSize(qt.QSize(36, 36))
 
-        gearIcon = qt.QIcon(self.resourcePath("Icons/Gears.png"))
-        self.settingsAction = settingsToolBar.addAction(gearIcon, "")
+        self.settingsAction = settingsToolBar.addAction(self.toolbarIcon("settings"), self.tr("Settings"))
+        self.settingsAction.setToolTip(self.tr("Open Radiance preferences"))
 
         # Settings dialog
         self.settingsDialog = slicer.util.loadUI(self.resourcePath("UI/Settings.ui"))
@@ -242,6 +244,22 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         widget.style().unpolish(widget)
         widget.style().polish(widget)
         widget.update()
+
+    def _load_toolbar_icons(self) -> dict[str, qt.QIcon]:
+        files = {
+            "home": "toolbar_home.svg",
+            "data": "toolbar_data.svg",
+            "segment": "toolbar_segment.svg",
+            "render": "toolbar_render.svg",
+            "settings": "toolbar_settings.svg",
+        }
+        icons: dict[str, qt.QIcon] = {}
+        for key, filename in files.items():
+            icons[key] = qt.QIcon(self.resourcePath(f"Icons/Toolbar/{filename}"))
+        return icons
+
+    def toolbarIcon(self, name: str) -> qt.QIcon:
+        return self._toolbar_icons.get(name, qt.QIcon())
 
 class HomeLogic(ScriptedLoadableModuleLogic):
     """
