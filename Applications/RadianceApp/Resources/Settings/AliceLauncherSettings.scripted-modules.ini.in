@@ -1,0 +1,3 @@
+[EnvironmentVariables]
+# Force launcher-side scripted module search paths so Program Files installs always ship the modules.
+SLICER_QTSCRIPTEDMODULES_PATHS=<APPLAUNCHER_DIR>/../lib/@RS_APP_NAME@-@RS_SLICER_MM@/qt-scripted-modules<PATHSEP><APPLAUNCHER_DIR>/../lib/Slicer-@RS_SLICER_MM@/qt-scripted-modules

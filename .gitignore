@@ -2,6 +2,9 @@ build/
 SlicerCustomAppUtilities/
 build_vs17/
 build_vs17_backup/
+_CPack_Packages/
+$stage/
+Alice-*.exe
 Slicer_build_configure.log
 .vs/
 Tools/tmp_*

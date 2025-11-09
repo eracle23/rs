@@ -60,13 +60,75 @@ set(Slicer_DEFAULT_HOME_MODULE "Data" CACHE STRING "Default home module" FORCE)
 # 去掉自定义 Home 模块后，更新常用模块列表（不再包含 Home）
 set(Slicer_DEFAULT_FAVORITE_MODULES "Data, SegmentEditor, VolumeRendering, Transforms")
 
+#
+# Ensure Slicer version components are available early (before SuperBuild/cache setup)
+#
+macro(_rs_extract_slicer_version_component component)
+  if(NOT DEFINED Slicer_VERSION_${component})
+    if(NOT EXISTS "${slicersources_SOURCE_DIR}/CMakeLists.txt")
+      message(FATAL_ERROR "Cannot determine Slicer version because ${slicersources_SOURCE_DIR}/CMakeLists.txt is missing.")
+    endif()
+    file(STRINGS "${slicersources_SOURCE_DIR}/CMakeLists.txt" _rs_ver_line
+      REGEX "set\\(Slicer_VERSION_${component} \"[0-9]+\"\\)")
+    if(_rs_ver_line STREQUAL "")
+      message(FATAL_ERROR "Failed to parse Slicer_VERSION_${component} from ${slicersources_SOURCE_DIR}/CMakeLists.txt")
+    endif()
+    string(REGEX REPLACE ".*\"([0-9]+)\".*" "\\1" _rs_ver_value "${_rs_ver_line}")
+    set(Slicer_VERSION_${component} "${_rs_ver_value}" CACHE INTERNAL "Slicer version ${component}" FORCE)
+  endif()
+endmacro()
+_rs_extract_slicer_version_component(MAJOR)
+_rs_extract_slicer_version_component(MINOR)
+_rs_extract_slicer_version_component(PATCH)
+
+#
+# Scripted modules: install path and default search paths
+# ------------------------------------------------------
+# 目标：将所有 Python/Scripted 模块（包含内置与打包扩展）统一安装到
+#       lib/<App>-<ver>/qt-scripted-modules，并保留 Slicer-<ver> 兼容路径。
+#
+set(Slicer_INSTALL_QTSCRIPTEDMODULES_LIB_DIR
+  "lib/${SlicerApp_APPLICATION_NAME}-${Slicer_VERSION_MAJOR}.${Slicer_VERSION_MINOR}/qt-scripted-modules"
+  CACHE PATH "Install dir for Qt scripted modules" FORCE)
+
+set(Slicer_ADDITIONAL_MODULE_PATHS
+  "${CMAKE_INSTALL_PREFIX}/lib/${SlicerApp_APPLICATION_NAME}-${Slicer_VERSION_MAJOR}.${Slicer_VERSION_MINOR}/qt-scripted-modules"
+  "${CMAKE_INSTALL_PREFIX}/lib/Slicer-${Slicer_VERSION_MAJOR}.${Slicer_VERSION_MINOR}/qt-scripted-modules"
+  CACHE STRING "Additional module search paths" FORCE)
+
+
+
+
 # Configure SuperBuild
 set(SUPERBUILD_TOPLEVEL_PROJECT Slicer)
+
+# Ensure inner Slicer build exports its UseSlicer.cmake path to bundled extensions.
+set(Slicer_BINARY_DIR "${CMAKE_BINARY_DIR}/Slicer-build"
+    CACHE PATH "Inner Slicer build tree" FORCE)
+set(Slicer_USE_FILE "${Slicer_BINARY_DIR}/UseSlicer.cmake"
+    CACHE FILEPATH "Path to UseSlicer.cmake" FORCE)
+set(Slicer_USE_FILE_CONFIG "${Slicer_BINARY_DIR}/UseSlicer.cmake"
+    CACHE FILEPATH "UseSlicer path embedded in extension-friendly config" FORCE)
+set(CTK_DIR "${CMAKE_BINARY_DIR}/CTK-build"
+    CACHE PATH "CTK build tree for CONFIG-mode consumers" FORCE)
+set(SlicerExecutionModel_DIR "${CMAKE_BINARY_DIR}/SlicerExecutionModel-build"
+    CACHE PATH "SlicerExecutionModel build tree for CONFIG-mode consumers" FORCE)
+
 # Ensure Slicer SuperBuild also searches our local SuperBuild directory
 # for any future custom External_*.cmake files.
 set(EXTERNAL_PROJECT_ADDITIONAL_DIRS "${CMAKE_CURRENT_SOURCE_DIR}/SuperBuild")
 include(ExternalProjectDependency)
+if(NOT DEFINED RS_SKIP_FETCH_EXT)
+  set(RS_SKIP_FETCH_EXT OFF CACHE BOOL "Skip fetching bundled extensions (set ON to reuse cached dirs)" FORCE)
+endif()
+mark_as_superbuild(Slicer_INSTALL_QTSCRIPTEDMODULES_LIB_DIR:PATH)
+mark_as_superbuild(Slicer_ADDITIONAL_MODULE_PATHS:STRING)
 mark_as_superbuild(Slicer_EXTENSIONS_DIRBASENAME:STRING)
+mark_as_superbuild(Slicer_BINARY_DIR:PATH)
+mark_as_superbuild(Slicer_USE_FILE:FILEPATH)
+mark_as_superbuild(Slicer_USE_FILE_CONFIG:FILEPATH)
+mark_as_superbuild(CTK_DIR:PATH)
+mark_as_superbuild(SlicerExecutionModel_DIR:PATH)
 mark_as_superbuild(EXTERNAL_PROJECT_ADDITIONAL_DIRS:STRING)
 mark_as_superbuild(CMAKE_INSTALL_PREFIX:PATH)
 mark_as_superbuild(Slicer_USE_SimpleITK:BOOL)
@@ -134,7 +196,8 @@ set(Slicer_USE_SimpleITK ON CACHE BOOL "Build application with SimpleITK support
 option(Slicer_BUILD_BRAINSTOOLS                 "Build application with BRAINSTools module"           OFF)
 option(Slicer_BUILD_DataStore                   "Build application with DataStore module"             OFF)
 option(Slicer_BUILD_CompareVolumes              "Build application with ChangeTrackerPy module"       OFF)
-option(Slicer_BUILD_LandmarkRegistration        "Build application with LandmarkRegistration module"  OFF)
+option(Slicer_BUILD_LandmarkRegistration        "Build application with LandmarkRegistration module"  ON)
+set(Slicer_BUILD_LandmarkRegistration ON CACHE BOOL "Build application with LandmarkRegistration module" FORCE)
 option(Slicer_BUILD_SurfaceToolbox              "Build application with SurfaceToolbox module"        OFF)
 
 # Enable Slicer built-in modules

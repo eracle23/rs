@@ -101,5 +101,48 @@ slicerMacroBuildApplication(
   ${extra_args}
   )
 
+# Ensure the GUI launcher with patched icon (AliceW.exe) is always generated
+# before we attempt to install/package it. Otherwise CPack may fail with
+# “file INSTALL cannot find …/CMakeFiles/AliceW.exe”.
+if(WIN32 AND TARGET ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
+  set(_launcher_artifacts_target "${SLICERAPP_APPLICATION_NAME}LauncherArtifacts")
+  add_custom_target(${_launcher_artifacts_target} ALL
+    DEPENDS ${SLICERAPP_APPLICATION_NAME}UpdateLauncherWIcon)
+  set_target_properties(${_launcher_artifacts_target} PROPERTIES
+    FOLDER ${${PROJECT_NAME}_FOLDER})
+endif()
+
+# Ensure packaged installs ship scripted modules by injecting launcher-side search paths.
+set(RS_LAUNCHER_ENV_OVERLAY_TEMPLATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/Resources/Settings/AliceLauncherSettings.scripted-modules.ini.in")
+set(RS_LAUNCHER_ENV_OVERLAY "${CMAKE_CURRENT_BINARY_DIR}/AliceLauncherSettings.scripted-modules.ini")
+set(RS_SLICER_MM "${Slicer_VERSION_MAJOR}.${Slicer_VERSION_MINOR}")
+set(RS_APP_NAME "${SLICERAPP_APPLICATION_NAME}")
+configure_file(
+  ${RS_LAUNCHER_ENV_OVERLAY_TEMPLATE}
+  ${RS_LAUNCHER_ENV_OVERLAY}
+  @ONLY
+  )
+file(TO_CMAKE_PATH "${RS_LAUNCHER_ENV_OVERLAY}" RS_LAUNCHER_ENV_OVERLAY_CMAKE)
+install(CODE
+  "
+  set(_launcher_ini \"\${CMAKE_INSTALL_PREFIX}/${Slicer_INSTALL_BIN_DIR}/${SLICERAPP_APPLICATION_NAME}LauncherSettings.ini\")
+  if(EXISTS \"\${_launcher_ini}\")
+    file(READ \"\${_launcher_ini}\" _existing_launcher_ini)
+    string(FIND \"\${_existing_launcher_ini}\" \"SLICER_QTSCRIPTEDMODULES_PATHS\" _launcher_env_match)
+    if(_launcher_env_match EQUAL -1)
+      file(READ \"${RS_LAUNCHER_ENV_OVERLAY_CMAKE}\" _overlay_content)
+      file(APPEND \"\${_launcher_ini}\" \"\\n\${_overlay_content}\\n\")
+      message(STATUS \"${SLICERAPP_APPLICATION_NAME} launcher updated with scripted module search paths: \${_launcher_ini}\")
+    else()
+      message(STATUS \"${SLICERAPP_APPLICATION_NAME} launcher already defines SLICER_QTSCRIPTEDMODULES_PATHS: \${_launcher_ini}\")
+    endif()
+  else()
+    message(WARNING \"Launcher settings missing, cannot append scripted module paths: \${_launcher_ini}\")
+  endif()
+  "
+  COMPONENT Runtime
+  )
+
 # Build and install Windows association helper (per-user, default apps UI launcher)
 add_subdirectory(Utilities/AssocPrompt)

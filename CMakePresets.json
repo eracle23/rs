@@ -16,6 +16,8 @@
         "CMAKE_BUILD_TYPE": "Release",
         "BUILD_TESTING": "OFF",
         "Slicer_BUILD_DOCUMENTATION": "OFF",
+        "Slicer_BUILD_QTSCRIPTEDMODULES": "ON",
+        "Slicer_BUILD_EXTENSIONMANAGER_SUPPORT": "ON",
         "Slicer_USE_PYTHONQT": "ON",
         "Slicer_BUILD_WIN32_CONSOLE": "ON",
         "CMAKE_NINJA_FORCE_RESPONSE_FILE": "ON",
@@ -80,6 +82,8 @@
         "CMAKE_VERBOSE_MAKEFILE": "ON",
         "Slicer_SUPERBUILD": "ON",
         "Slicer_BUILD_TESTING": "OFF",
+        "Slicer_BUILD_QTSCRIPTEDMODULES": "ON",
+        "Slicer_BUILD_EXTENSIONMANAGER_SUPPORT": "ON",
         "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5"
       }
     }

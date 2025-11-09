@@ -1,10 +1,11 @@
-没问题。下面给你一个**做法 A（SuperBuild 内置扩展）**的**可直接在本地执行**的详细方案，目标是把这 5 个扩展打包进你基于 SlicerCAT 的自定义应用里：
+没问题。下面给你一个**做法 A（SuperBuild 内置扩展）**的**可直接在本地执行**的详细方案，目标是把这些扩展打包进你基于 SlicerCAT 的自定义应用里：
 
 * Total Segmentator（SlicerTotalSegmentator）
 * nnUNet（SlicerNNUnet）
 * Slicer-AirwaySegmentation
 * SegmentEditorExtraEffects
 * SlicerDcm2nii
+* General Registration (Elastix)（SlicerElastix）
 
 > 做法 A 的核心：在 SlicerCAT 的 SuperBuild 里指定 `Slicer_EXTENSION_SOURCE_DIRS`，并且用 CMake `FetchContent`/Git 固定这些扩展的提交（或分支），这样编译出的安装包里就“自带”这些扩展，无需用户再用扩展管理器安装。Slicer 官方文档与论坛均说明 `Slicer_EXTENSION_SOURCE_DIRS` 用于将扩展随应用一同编译和打包。([3D Slicer][1])
 
@@ -115,6 +116,12 @@ _bundle_ext(Ext_SlicerDcm2nii
   https://github.com/SlicerDMRI/SlicerDcm2nii.git
   e3551e4)
 
+# 6) SlicerElastix（通用配准）
+#   仓库：lassoan/SlicerElastix；固定到 2025-11-05 的提交 021d715c1de4db3b0ce3ec2f14345aab1bc1c15a
+_bundle_ext(Ext_SlicerElastix
+  https://github.com/lassoan/SlicerElastix.git
+  021d715c1de4db3b0ce3ec2f14345aab1bc1c15a)
+
 # 去重
 list(REMOVE_DUPLICATES Slicer_EXTENSION_SOURCE_DIRS)
 message(STATUS "Bundled extensions: ${Slicer_EXTENSION_SOURCE_DIRS}")
@@ -195,6 +202,17 @@ cmake --build build --target package
 
 * **SlicerTotalSegmentator / SlicerNNUnet**：两者在模块界面里都有“一键安装依赖”的按钮（会在 Slicer 内嵌 Python 环境里 `pip` 安装 PyTorch、nnUNet 等）。SlicerNNUnet 设计为能在无 GPU 情况下回退到 CPU 推理。([GitHub][13])
 * 需要离线环境时，可在应用首次启动脚本里预置 `pip` 源或本地 `wheel` 目录（例如设置 `PIP_INDEX_URL`、`PIP_FIND_LINKS`），以避免出网。（通用做法；如需我可以给启动脚本样例。）
+
+---
+
+## 附录：集成 General Registration (Elastix)
+
+本仓库的 SuperBuild 已支持“内置扩展”打包。要启用 General Registration (Elastix)：
+
+- 在 `SuperBuild/Extensions.cmake` 中加入 SlicerElastix（上文已给出 `_bundle_ext(Ext_SlicerElastix ...)` 示例）。
+- 构建完成后，模块在“Registration”分类下出现。如果首次运行提示找不到 `elastix/transformix`，在模块右上角齿轮或 `Edit → Application Settings → Modules → SlicerElastix` 中指向扩展目录内的二进制（通常会自动找到）。
+
+提示：顶层 `CMakeLists.txt` 会把每个扩展的 `SuperBuild/` 或 `Superbuild/` 目录追加到 `EXTERNAL_PROJECT_ADDITIONAL_DIRS`，因此像 SlicerElastix 这类需要在扩展内部拉取第三方（elastix）源码/二进制的情形可以直接工作。
 
 ---
 
