@@ -17,8 +17,7 @@
 #include "qSlicerApplication.h"
 #include <vtkMRMLScene.h>
 #include <vtkMRMLSliceNode.h>
-#include <vtkCollection.h>
-#include <vtkNew.h>
+#include <vector>
 
 namespace
 {
@@ -277,12 +276,15 @@ void ThemeSync::refreshSliceControllers()
     {
     if (vtkMRMLScene* scene = app->mrmlScene())
       {
-      vtkNew<vtkCollection> sliceNodes;
-      scene->GetNodesByClass("vtkMRMLSliceNode", sliceNodes.GetPointer());
-      sliceNodes->InitTraversal();
-      while (vtkObject* object = sliceNodes->GetNextItemAsObject())
+      std::vector<vtkMRMLNode*> sliceNodes;
+      scene->GetNodesByClass("vtkMRMLSliceNode", sliceNodes);
+      for (vtkMRMLNode* node : sliceNodes)
         {
-        if (auto* sliceNode = vtkMRMLSliceNode::SafeDownCast(object))
+        auto* sliceNode = vtkMRMLSliceNode::SafeDownCast(node);
+        if (!sliceNode)
+          {
+          continue;
+          }
           {
           double rgb[3] = {0., 0., 0.};
           sliceNode->GetLayoutColor(rgb);

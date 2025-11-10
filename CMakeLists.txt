@@ -214,7 +214,7 @@ set(Slicer_QTSCRIPTEDMODULES_ENABLED
 set(Slicer_CLIMODULES_DISABLED
   )
 set(Slicer_QTLOADABLEMODULES_DISABLED "SlicerWelcome" CACHE STRING "Disable Slicer-branded loadable modules" FORCE)
-set(Slicer_QTSCRIPTEDMODULES_DISABLED "SampleData" CACHE STRING "Disable Slicer-branded scripted modules" FORCE)
+set(Slicer_QTSCRIPTEDMODULES_DISABLED "" CACHE STRING "Disable Slicer-branded scripted modules" FORCE)
 
 # Enable/Disable Slicer custom modules: To create a new module, use the SlicerExtensionWizard.
 set(Slicer_EXTENSION_SOURCE_DIRS
