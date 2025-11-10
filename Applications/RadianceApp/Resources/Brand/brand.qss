@@ -16,11 +16,6 @@ QPushButton {
   border: 1px solid palette(mid);
 }
 
-QPushButton:disabled {
-  background: palette(button);
-  color: palette(mid);
-}
-
 QToolTip {
   background: palette(toolTipBase);
   color: palette(toolTipText);

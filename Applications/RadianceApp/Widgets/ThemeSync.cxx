@@ -1,6 +1,7 @@
 // Minimal shell-level theme synchronizer implementation.
 
 #include "ThemeSync.h"
+#include "../BrandingPreferences.h"
 
 #include <QApplication>
 #include <QEvent>
@@ -179,11 +180,18 @@ void ThemeSync::applyBranding()
       {
       fallbackText = isDark ? QColor(245, 247, 250) : QColor(24, 24, 27);
       }
-    QColor disabledText = fallbackText;
-    disabledText.setAlphaF(isDark ? 0.55 : 0.45);
 
+    QColor disabledText = fallbackText;
+    disabledText = isDark ? disabledText.lighter(165) : disabledText.darker(135);
+
+    updatedPalette.setColor(QPalette::Disabled, QPalette::WindowText, disabledText);
+    updatedPalette.setColor(QPalette::Disabled, QPalette::Text, disabledText);
+    updatedPalette.setColor(QPalette::Disabled, QPalette::ButtonText, disabledText);
+    updatedPalette.setColor(QPalette::Disabled, QPalette::PlaceholderText, disabledText);
+    updatedPalette.setColor(QPalette::Disabled, QPalette::HighlightedText, disabledText);
+
+    QString mergedQss = qss;
     const QString disabledQss = QStringLiteral(R"(
-/* ThemeSync disabled-state override */
 QWidget:disabled,
 QLabel:disabled,
 QToolButton:disabled,
@@ -199,8 +207,6 @@ QAbstractItemView:disabled {
   color: %1;
 }
 )").arg(rgbaString(disabledText));
-
-    QString mergedQss = qss;
     if (!disabledQss.isEmpty())
       {
       if (!mergedQss.isEmpty() && !mergedQss.endsWith(QLatin1Char('\n')))
@@ -214,12 +220,6 @@ QAbstractItemView:disabled {
       {
       qApp->setStyleSheet(mergedQss);
       }
-
-    updatedPalette.setColor(QPalette::Disabled, QPalette::WindowText, disabledText);
-    updatedPalette.setColor(QPalette::Disabled, QPalette::Text, disabledText);
-    updatedPalette.setColor(QPalette::Disabled, QPalette::ButtonText, disabledText);
-    updatedPalette.setColor(QPalette::Disabled, QPalette::PlaceholderText, disabledText);
-    updatedPalette.setColor(QPalette::Disabled, QPalette::HighlightedText, disabledText);
 
     QColor tooltipBase = currentPalette.color(QPalette::Base);
     if (!tooltipBase.isValid())
@@ -268,6 +268,11 @@ QAbstractItemView:disabled {
 
 void ThemeSync::refreshSliceControllers()
 {
+  if (RadianceBranding::nativeStyleEnabled())
+    {
+    return;
+    }
+
   if (qSlicerApplication* app = qSlicerApplication::application())
     {
     if (vtkMRMLScene* scene = app->mrmlScene())

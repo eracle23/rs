@@ -18,7 +18,7 @@
 // Radiance includes
 #include "qRadianceAppMainWindow.h"
 #include "qRadianceAppMainWindow_p.h"
-#include "Widgets/ThemeSync.h"
+#include "BrandingPreferences.h"
 
 // Qt includes
 #include <QAction>
@@ -300,13 +300,16 @@ void qRadianceAppMainWindowPrivate::init()
 #endif
   Q_Q(qRadianceAppMainWindow);
   this->Superclass::init();
-  // Install brand theme synchronizer (shell-level, non-invasive)
-  // 延后到应用 startupCompleted 之后再创建 ThemeSync，避免早期样式变更引发模块加载期递归/风暴
-  QObject::connect(qSlicerApplication::application(), &qSlicerApplication::startupCompleted,
-                   q, [q]() {
-                     auto* sync = new ThemeSync(q);
-                     QTimer::singleShot(0, sync, SLOT(applyBranding()));
-                   });
+
+  // 清空任何遗留的全局样式与调色板，确保完全回到 Slicer 默认主题
+  if (QApplication* app = qApp)
+    {
+    app->setStyleSheet(QString());
+    if (QStyle* style = app->style())
+      {
+      app->setPalette(style->standardPalette());
+      }
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -479,6 +482,13 @@ qRadianceAppMainWindow::~qRadianceAppMainWindow()
 //-----------------------------------------------------------------------------
 void qRadianceAppMainWindow::on_HelpAboutRadianceAppAction_triggered()
 {
+  if (RadianceBranding::nativeStyleEnabled())
+    {
+    qSlicerAboutDialog about(this);
+    about.exec();
+    return;
+    }
+
   qSlicerAboutDialog about(this);
   constexpr int brandWidth = 480;
   constexpr int brandHeight = 180;
@@ -610,6 +620,11 @@ void qRadianceAppMainWindow::applyShellTweaks()
 //-----------------------------------------------------------------------------
 void qRadianceAppMainWindowPrivate::applyToolbarBranding()
 {
+  if (RadianceBranding::nativeStyleEnabled())
+    {
+    return;
+    }
+
   const QColor accentColor = this->brandAccentColor();
 
   auto tintToolbar = [this, accentColor](QToolBar* toolbar, Qt::ToolButtonStyle style, bool applyStyle)
