@@ -4,7 +4,7 @@
 
 set(CPACK_NSIS_INSTALLER_MUI_FINISHPAGE_RUN_CODE [=[
 !define MUI_FINISHPAGE_RUN "$INSTDIR\bin\AssocPrompt.exe"
-!define MUI_FINISHPAGE_RUN_TEXT "将 *.mrml/*.mrb 设为默认由 ${CPACK_PACKAGE_NAME} 打开"
+!define MUI_FINISHPAGE_RUN_TEXT "Set this for .mrml/.mrb as default"
 !define MUI_FINISHPAGE_RUN_NOTCHECKED
 ]=])
 

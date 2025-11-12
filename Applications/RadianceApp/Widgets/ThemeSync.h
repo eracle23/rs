@@ -5,6 +5,10 @@
 #define __ThemeSync_h
 
 #include <QObject>
+#include <QHash>
+#include <QSet>
+#include <QColor>
+#include <QString>
 
 class ThemeSync : public QObject
 {
@@ -19,8 +23,11 @@ public Q_SLOTS:
   void applyBranding();
 
 private:
+  void refreshSliceControllers();
   bool pending_{false};
   bool applying_{false};
+  QHash<QString, QColor> tunedSliceNodeColors_;
+  QSet<QString> userOverriddenSliceNodes_;
 };
 
 #endif

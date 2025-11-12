@@ -52,40 +52,6 @@ QPalette qAppStyle::standardPalette()const
 {
   QPalette palette = this->Superclass::standardPalette();
 
-  // Respect the current theme: if the base palette is dark, keep it as-is.
-  const QColor bg = palette.color(QPalette::Window);
-  const QColor fg = palette.color(QPalette::WindowText);
-  const bool isDarkTheme = bg.lightnessF() < fg.lightnessF();
-
-  if (!isDarkTheme)
-    {
-    // Apply Radiance light palette overrides only for light theme
-    palette.setColor(QPalette::Active, QPalette::Window, "#eaebee");
-    palette.setColor(QPalette::Inactive, QPalette::Window, "#eaebee");
-    palette.setColor(QPalette::Disabled, QPalette::Window, "#dedfe1");
-    palette.setColor(QPalette::Active, QPalette::WindowText, "#002f4f");
-    palette.setColor(QPalette::Inactive, QPalette::WindowText, "#002f4f");
-    palette.setColor(QPalette::Disabled, QPalette::WindowText, "#2a404f");
-    palette.setColor(QPalette::Active, QPalette::Text, "#002f4f");
-    palette.setColor(QPalette::Inactive, QPalette::Text, "#002f4f");
-    palette.setColor(QPalette::Disabled, QPalette::Text, "#2a404f");
-    palette.setColor(QPalette::Active, QPalette::Base, "#ffffff");
-    palette.setColor(QPalette::Inactive, QPalette::Base, "#ffffff");
-    palette.setColor(QPalette::Disabled, QPalette::Base, "#eaebee");
-
-    palette.setColor(QPalette::Light, "#ffffff");
-    palette.setColor(QPalette::Button, "#dedfe1");
-    palette.setColor(QPalette::Mid, "#005f9e");
-    palette.setColor(QPalette::Dark, "#005f9e");
-    palette.setColor(QPalette::Active, QPalette::ButtonText, "#005f9e");
-    palette.setColor(QPalette::Inactive, QPalette::ButtonText, "#005f9e");
-    palette.setColor(QPalette::Disabled, QPalette::ButtonText, "#003050");
-    palette.setColor(QPalette::Shadow, "#002f4f");
-
-    palette.setColor(QPalette::Highlight, "#009d49");
-    palette.setColor(QPalette::HighlightedText, "#ffffff");
-    }
-
   return palette;
 }
 
@@ -137,29 +103,6 @@ QPalette qAppStyle::tweakWidgetPalette(QPalette widgetPalette,
   if (!widget)
     {
     return widgetPalette;
-    }
-  const QPushButton* pushButton =
-    qobject_cast<const QPushButton*>(widget);
-  if (pushButton &&
-      !pushButton->text().isEmpty())
-    {
-    QColor buttonColor = this->standardPalette().color(QPalette::Dark);
-    widgetPalette.setColor(QPalette::Active, QPalette::Button, buttonColor);
-    widgetPalette.setColor(QPalette::Inactive, QPalette::Button, buttonColor);
-    QColor disabledButtonColor = buttonColor.toHsv();
-    disabledButtonColor.setHsvF(disabledButtonColor.hueF(),
-                                disabledButtonColor.saturationF() * 0.8,
-                                disabledButtonColor.valueF() * 0.9);
-    widgetPalette.setColor(QPalette::Disabled, QPalette::Button, disabledButtonColor);
-    QColor buttonTextColor =
-      this->standardPalette().color(QPalette::Light);
-    widgetPalette.setColor(QPalette::Active, QPalette::ButtonText, buttonTextColor);
-    widgetPalette.setColor(QPalette::Inactive, QPalette::ButtonText, buttonTextColor);
-    QColor disabledButtonTextColor = buttonTextColor.toHsv();
-    disabledButtonTextColor.setHsvF(buttonColor.hueF(),
-                                    disabledButtonTextColor.saturationF() * 0.3,
-                                    disabledButtonTextColor.valueF() * 0.8);
-    widgetPalette.setColor(QPalette::Disabled, QPalette::ButtonText, disabledButtonColor);
     }
   if (qobject_cast<const QMenuBar*>(widget))
     {

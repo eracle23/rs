@@ -164,6 +164,44 @@ function Ensure-MsvcVcLibInclude {
   } catch { return $false }
 }
 
+function Remove-StalePackageArtifacts {
+  param(
+    [string[]]$Directories,
+    [string]$PackageConfigPath
+  )
+  $patterns = @()
+  if ($PackageConfigPath -and (Test-Path $PackageConfigPath)) {
+    try {
+      $cfgText = Get-Content -LiteralPath $PackageConfigPath -Raw -ErrorAction Stop
+      if ($cfgText -match 'CPACK_PACKAGE_FILE_NAME\s+"([^"]+)"') {
+        $patterns += ("{0}.exe" -f $matches[1])
+      }
+      if ($cfgText -match 'CPACK_SYSTEM_NAME\s+"([^"]+)"') {
+        $patterns += ("*-{0}.exe" -f $matches[1])
+      }
+    } catch {
+      Write-Warning ("Failed to read {0} for package cleanup: {1}" -f $PackageConfigPath,$_.Exception.Message)
+    }
+  }
+  if (-not $patterns -or $patterns.Count -eq 0) {
+    $patterns = @('*-win-amd64.exe')
+  }
+  $patterns = $patterns | Where-Object { $_ } | Select-Object -Unique
+  foreach ($dir in ($Directories | Where-Object { $_ -and (Test-Path $_) })) {
+    foreach ($pattern in $patterns) {
+      try {
+        $candidates = Get-ChildItem -Path $dir -Filter $pattern -File -ErrorAction SilentlyContinue
+        foreach ($file in $candidates) {
+          Write-Host ("Removing stale installer: {0}" -f $file.FullName) -ForegroundColor Yellow
+          Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop
+        }
+      } catch {
+        Write-Warning ("Failed to purge installers in {0} (pattern {1}): {2}" -f $dir,$pattern,$_.Exception.Message)
+      }
+    }
+  }
+}
+
 function Get-FreeDriveLetter([string[]]$Preferred) {
   $used = Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Name
   foreach ($l in $Preferred) { if (-not ($used -contains $l.TrimEnd(':'))) { return ($l.TrimEnd(':')) } }
@@ -1006,15 +1044,33 @@ if ($InnerOnly -and ($effectivePreset -like 'vs17*')) {
     Write-Host "Packaging after inner install (CPack with Finish checkbox injection) ..." -ForegroundColor Green
     $projCfgRoot = Join-Path $PSScriptRoot '..'
     $projCfg = Join-Path $projCfgRoot 'CMake/CPackProjectConfig.cmake'
-    $innerSlicerBuild = Join-Path $buildDir 'Slicer-build'
+    $innerSlicerBuild = $innerBin
+    $cpackStageRoots = @(
+      (Join-Path $innerSlicerBuild '_CPack_Packages'),
+      (Join-Path $topBin '_CPack_Packages')
+    ) | Sort-Object -Unique
+    foreach ($stage in $cpackStageRoots) {
+      if ($stage -and (Test-Path $stage)) {
+        Write-Host ("Cleaning stale CPack staging: {0}" -f $stage) -ForegroundColor Yellow
+        try { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop } catch { Write-Warning ("Failed to clean {0}: {1}" -f $stage,$_.Exception.Message) }
+      }
+    }
+    $innerCpackConfig = Join-Path $innerSlicerBuild 'CPackConfig.cmake'
+    $innerCleanupDirs = @(
+      $innerSlicerBuild,
+      (Split-Path -Parent $innerSlicerBuild),
+      $projCfgRoot
+    ) | Where-Object { $_ } | Select-Object -Unique
+    Remove-StalePackageArtifacts -Directories $innerCleanupDirs -PackageConfigPath $innerCpackConfig
     if ((Test-Path $projCfg) -and (Test-Path $innerSlicerBuild)) {
       Push-Location $innerSlicerBuild
       try {
         cpack -G NSIS -C $InnerConfig -D CPACK_PROJECT_CONFIG_FILE=$projCfg | Write-Host
       } finally { Pop-Location }
     } else {
-      # Fallback to VS preset if paths are unexpected
-      cmake --build --preset vs17-dev-rel --target package | Write-Host
+      # Fallback: drive PACKAGE target directly inside inner Slicer-build
+      $innerPath = ($innerSlicerBuild -replace "\\","/")
+      cmake --build $innerPath --config $InnerConfig --target PACKAGE | Write-Host
     }
   }
   Write-Host "Done." -ForegroundColor Cyan
@@ -1127,6 +1183,23 @@ if ($Package) {
   # inclusion of custom Finish page macros (InstallerFinish.nsh) regardless of upstream defaults.
   $projCfgRoot = Join-Path $PSScriptRoot '..'
   $projCfg = Join-Path $projCfgRoot 'CMake/CPackProjectConfig.cmake'
+  $cpackStageRoots = @(
+    (Join-Path $buildDir '_CPack_Packages'),
+    (Join-Path (Join-Path $buildDir 'Slicer-build') '_CPack_Packages')
+  ) | Sort-Object -Unique
+  foreach ($stage in $cpackStageRoots) {
+    if ($stage -and (Test-Path $stage)) {
+      Write-Host ("Cleaning stale CPack staging: {0}" -f $stage) -ForegroundColor Yellow
+      try { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction Stop } catch { Write-Warning ("Failed to clean {0}: {1}" -f $stage,$_.Exception.Message) }
+    }
+  }
+  $outerCpackConfig = Join-Path $buildDir 'CPackConfig.cmake'
+  $outerCleanupDirs = @(
+    $buildDir,
+    (Join-Path $buildDir 'Slicer-build'),
+    $projCfgRoot
+  ) | Where-Object { $_ } | Select-Object -Unique
+  Remove-StalePackageArtifacts -Directories $outerCleanupDirs -PackageConfigPath $outerCpackConfig
   if (-not (Test-Path $projCfg)) {
     # Fallback to build 'package' if project config is missing
     Write-Host "CPackProjectConfig.cmake not found; falling back to 'cmake --build --target package'" -ForegroundColor Yellow

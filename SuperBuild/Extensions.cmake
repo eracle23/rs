@@ -28,6 +28,22 @@ if(DEFINED Slicer_DIR AND NOT "${Slicer_DIR}" STREQUAL "" AND EXISTS "${Slicer_D
     get_filename_component(_rs_superbuild_root "${_rs_superbuild_root}" DIRECTORY) # superbuild root
   endif()
 
+  set(_rs_slicer_src "")
+  if(_rs_superbuild_root)
+    set(_rs_slicer_src_candidates
+      "${_rs_superbuild_root}/slicersources-src"
+      "${_rs_superbuild_root}/../slicersources-src"
+      "${CMAKE_BINARY_DIR}/../slicersources-src"
+      "${CMAKE_BINARY_DIR}/../../slicersources-src"
+    )
+    foreach(_p IN LISTS _rs_slicer_src_candidates)
+      if(_p AND EXISTS "${_p}/CMakeLists.txt")
+        set(_rs_slicer_src "${_p}")
+        break()
+      endif()
+    endforeach()
+  endif()
+
   # 1) Locate CTK_DIR and include UseCTK for macro availability.
   if(NOT DEFINED CTK_DIR)
     set(_rs_ctk_candidates
@@ -112,6 +128,51 @@ if(DEFINED Slicer_DIR AND NOT "${Slicer_DIR}" STREQUAL "" AND EXISTS "${Slicer_D
     endif()
   endif()
 
+  # 3) Locate CTKAppLauncher so extensions using launcher macros can configure.
+  if(NOT DEFINED CTKAppLauncher_DIR)
+    set(_rs_launcher_candidates
+      "$ENV{CTKAppLauncher_DIR}"
+      "$ENV{CTKAppLauncherLib_DIR}"
+      "${_rs_superbuild_root}/CTKAppLauncher-build"
+      "${_rs_superbuild_root}/CTKAppLauncherLib-build"
+      "${_rs_superbuild_root}/../CTKAppLauncher-build"
+      "${_rs_superbuild_root}/../CTKAppLauncherLib-build"
+      "${CMAKE_BINARY_DIR}/../CTKAppLauncher-build"
+      "${CMAKE_BINARY_DIR}/../../CTKAppLauncher-build"
+    )
+    foreach(_p IN LISTS _rs_launcher_candidates)
+      if(_p)
+        if(EXISTS "${_p}/CTKAppLauncherConfig.cmake")
+          set(CTKAppLauncher_DIR "${_p}" CACHE PATH "CTKAppLauncher build tree" FORCE)
+          break()
+        elseif(EXISTS "${_p}/CTKAppLauncherLibConfig.cmake")
+          set(CTKAppLauncher_DIR "${_p}" CACHE PATH "CTKAppLauncherLib build tree" FORCE)
+          break()
+        endif()
+      endif()
+    endforeach()
+  endif()
+  if(CTKAppLauncher_DIR)
+    list(APPEND CMAKE_PREFIX_PATH "${CTKAppLauncher_DIR}")
+  endif()
+
+  # 4) Backfill Slicer extension helper variables commonly missing in the
+  #    trimmed SlicerConfig exported under Slicer-build/E.
+  if(_rs_slicer_src)
+    set(_rs_ext_gen "${_rs_slicer_src}/CMake/SlicerExtensionGenerateConfig.cmake")
+    set(_rs_ext_cpack "${_rs_slicer_src}/CMake/SlicerExtensionCPack.cmake")
+    set(_rs_py_templates "${_rs_slicer_src}/Base/QTCore/Testing/Python")
+    if(NOT Slicer_EXTENSION_GENERATE_CONFIG AND EXISTS "${_rs_ext_gen}")
+      set(Slicer_EXTENSION_GENERATE_CONFIG "${_rs_ext_gen}" CACHE FILEPATH "Path to SlicerExtensionGenerateConfig.cmake" FORCE)
+    endif()
+    if(NOT Slicer_EXTENSION_CPACK AND EXISTS "${_rs_ext_cpack}")
+      set(Slicer_EXTENSION_CPACK "${_rs_ext_cpack}" CACHE FILEPATH "Path to SlicerExtensionCPack.cmake" FORCE)
+    endif()
+    if(NOT Slicer_PYTHON_MODULE_TEST_TEMPLATES_DIR AND EXISTS "${_rs_py_templates}")
+      set(Slicer_PYTHON_MODULE_TEST_TEMPLATES_DIR "${_rs_py_templates}" CACHE PATH "Slicer scripted module test templates" FORCE)
+    endif()
+  endif()
+
   list(REMOVE_DUPLICATES CMAKE_PREFIX_PATH)
   list(REMOVE_DUPLICATES CMAKE_MODULE_PATH)
 endif()
@@ -122,7 +183,9 @@ list(REMOVE_DUPLICATES _rs_top_level_includes)
 set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${_rs_top_level_includes}" CACHE STRING "Radiance extension init hook" FORCE)
 unset(_rs_top_level_includes)
 macro(_bundle_ext name repo tag)
+  set(_ext_src_dir "${CMAKE_BINARY_DIR}/Ext/${name}")
   FetchContent_Declare(${name}
+    SOURCE_DIR    ${_ext_src_dir}
     GIT_REPOSITORY ${repo}
     GIT_TAG        ${tag}
     GIT_SHALLOW    TRUE
@@ -132,15 +195,11 @@ macro(_bundle_ext name repo tag)
   if(NOT ${name}_POPULATED)
     FetchContent_Populate(${name})
   endif()
-  # 直接在当前（调用者）作用域追加
-  set(_ext_src_dir "${${name}_SOURCE_DIR}")
-  if(NOT _ext_src_dir)
-    string(TOLOWER "${name}" _lname)
-    set(_ext_src_dir "${CMAKE_BINARY_DIR}/_deps/${_lname}-src")
-  endif()
   message(STATUS "Bundle ext: ${name} -> ${_ext_src_dir}")
   list(APPEND Slicer_EXTENSION_SOURCE_DIRS "${_ext_src_dir}")
 endmacro()
+
+
 
 # 1) Total Segmentator
 #    仓库: lassoan/SlicerTotalSegmentator
@@ -179,17 +238,12 @@ _bundle_ext(Ext_MarkupsToModel
 
 # 6) General Registration (Elastix)
 #    仓库: lassoan/SlicerElastix
-#    分支: master
+#    提交: 2025-11-05 (021d715c1de4db3b0ce3ec2f14345aab1bc1c15a)
 _bundle_ext(SlicerElastix
   https://github.com/lassoan/SlicerElastix.git
-  master)
+  021d715c1de4db3b0ce3ec2f14345aab1bc1c15a)
 
-# 7) Landmark Registration
-#    仓库: Slicer/LandmarkRegistration
-#    分支: master
-_bundle_ext(LandmarkRegistration
-  https://github.com/Slicer/LandmarkRegistration.git
-  master)
+# 8) Landmark Registration (handled via Slicer_BUILD_LandmarkRegistration)
 
 option(RS_ENABLE_BUNDLE_DCM2NII "Bundle SlicerDcm2nii extension (requires compat shim)" OFF)
 if(RS_ENABLE_BUNDLE_DCM2NII)
@@ -205,8 +259,9 @@ list(REMOVE_DUPLICATES Slicer_EXTENSION_SOURCE_DIRS)
 if(NOT RS_ENABLE_BUNDLE_DCM2NII)
   list(FILTER Slicer_EXTENSION_SOURCE_DIRS EXCLUDE REGEX "SlicerDcm2nii$|ext_slicerdcm2nii-src$")
 endif()
-# 清理历史写法遗留的 ext_slicerelastix-src 目录（避免重复注入）
-list(FILTER Slicer_EXTENSION_SOURCE_DIRS EXCLUDE REGEX "ext_slicerelastix-src$")
+# Ensure remote modules handled by core build are not duplicated here
+list(FILTER Slicer_EXTENSION_SOURCE_DIRS EXCLUDE REGEX "/Ext/(LandmarkRegistration|CompareVolumes)$")
+
 message(STATUS "Bundled extensions: ${Slicer_EXTENSION_SOURCE_DIRS}")
 
 # Ensure bundled extensions gracefully handle empty Slicer_USE_FILE by falling back
