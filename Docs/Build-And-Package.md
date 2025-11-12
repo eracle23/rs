@@ -33,7 +33,7 @@
    * 教训：必须 **`ALL_BUILD → INSTALL → PACKAGE`**；只跑 `INSTALL/PACKAGE` 会经常缺库。重试打包前清空 `_CPack_Packages`，避免旧残留。
 
 7. **Elastix UI vs 运行库**
-   * UI = **SlicerElastix**；运行库 = **`elastix.exe/transformix.exe`**。本轮通过扩展内置 UI，运行库可手动放置或在 App Settings 指向外部可执行。
+   * UI = **SlicerElastix**；运行库 = **`elastix.exe/transformix.exe`**。务必把 SlicerElastix 作为扩展参加 SuperBuild，它自带的 SuperBuild 会下载/编译 elastix/transformix 并随安装包发布，不要再手拷 Python 目录或依赖 Extension Manager 的二进制包。
 
 ---
 
@@ -157,8 +157,8 @@ print('CTK OK:', hasattr(ctk, 'ctkCollapsibleButton'))
 * 模块检查：
   * `Dcm2niixGUI` 可见且可打开；能找到 `Resources/bin/dcm2niix.exe` 或 `app/bin/dcm2niix.exe`。
   * Segment Editor 效果下拉包含 `LocalThreshold / FastMarching / DrawTube` 等。
-  * 注册类模块包含 **General Registration (Elastix)** 与 **Landmark Registration**。
-  * 首次使用 *Elastix* 时，如提示找不到 `elastix/transformix`：`Edit → Application Settings → Modules → SlicerElastix` 指向二者可执行，或将可执行放到 `<App>/bin/`。
+* 注册类模块包含 **General Registration (Elastix)** 与 **Landmark Registration**。
+* 构建完应已在包内找到 `elastix/transformix`（由 SlicerElastix 托管），如仍报错请先确认 `SuperBuild/Extensions.cmake` 已启用该扩展；必要时再用 `Edit → Application Settings → Modules → SlicerElastix` 手动指定外部可执行或把二进制复制到 `<App>/bin/`。
 
 ## 结构化日志与进度估算
 
@@ -190,18 +190,17 @@ Get-ChildItem C:/S/vs-dev/slicersources-build/Slicer-prefix/tmp/ -Filter 'Slicer
 
 ### 扩展打包：Elastix + LandmarkRegistration
 
-为保证 *General Registration (Elastix)*（UI）与底层 CLI 同步落包，建议在 `SuperBuild/Extensions.cmake` 同时声明运行库与 UI 扩展：
+SlicerElastix 自带 `SuperBuild/`，把扩展加入 `Slicer_EXTENSION_SOURCE_DIRS` 即可顺带构建 `elastix/transformix` 并随安装包发布：
 
 ```cmake
-_bundle_ext(Elastix              https://github.com/SuperElastix/elastix-slicer-extension.git  <tag>)
-_bundle_ext(SlicerElastix        https://github.com/lassoan/SlicerElastix.git                   <tag>)
+_bundle_ext(SlicerElastix        https://github.com/lassoan/SlicerElastix.git                   021d715c1de4db3b0ce3ec2f14345aab1bc1c15a)
 _bundle_ext(LandmarkRegistration https://github.com/SlicerIGT/LandmarkRegistration.git          <tag>)
 ```
 
-> 若运行库仓库无法直接访问：
+> 说明：
 >
-> 1. 先仅内置 UI（SlicerElastix），在设置页手动指定 `elastix.exe/transformix.exe`；或
-> 2. 自建“运行库扩展”仓库封装已签名二进制，用 `ExternalProject`/`CPack` 安装到 `<App>/bin`。
+> 1. `GIT_TAG` 必须固定在验证过的提交（示例为 2025-11-05 `021d715c...`），否则 elastix/transformix 版本会随 upstream 漂移。
+> 2. LandmarkRegistration 亦建议 pin 提交（当前沿用 `master`）。构建时顶层 `CMakeLists.txt` 会自动把每个扩展的 `SuperBuild/` 目录加入 `EXTERNAL_PROJECT_ADDITIONAL_DIRS`，SlicerElastix 的内部 SuperBuild 因此会被触发，无需再维护单独的“Elastix CLI”扩展。
 
 ## 常见故障排查
 

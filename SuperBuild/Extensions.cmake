@@ -183,7 +183,9 @@ list(REMOVE_DUPLICATES _rs_top_level_includes)
 set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${_rs_top_level_includes}" CACHE STRING "Radiance extension init hook" FORCE)
 unset(_rs_top_level_includes)
 macro(_bundle_ext name repo tag)
+  set(_ext_src_dir "${CMAKE_BINARY_DIR}/Ext/${name}")
   FetchContent_Declare(${name}
+    SOURCE_DIR    ${_ext_src_dir}
     GIT_REPOSITORY ${repo}
     GIT_TAG        ${tag}
     GIT_SHALLOW    TRUE
@@ -193,15 +195,11 @@ macro(_bundle_ext name repo tag)
   if(NOT ${name}_POPULATED)
     FetchContent_Populate(${name})
   endif()
-  # 直接在当前（调用者）作用域追加
-  set(_ext_src_dir "${${name}_SOURCE_DIR}")
-  if(NOT _ext_src_dir)
-    string(TOLOWER "${name}" _lname)
-    set(_ext_src_dir "${CMAKE_BINARY_DIR}/_deps/${_lname}-src")
-  endif()
   message(STATUS "Bundle ext: ${name} -> ${_ext_src_dir}")
   list(APPEND Slicer_EXTENSION_SOURCE_DIRS "${_ext_src_dir}")
 endmacro()
+
+
 
 # 1) Total Segmentator
 #    仓库: lassoan/SlicerTotalSegmentator
@@ -240,17 +238,12 @@ _bundle_ext(Ext_MarkupsToModel
 
 # 6) General Registration (Elastix)
 #    仓库: lassoan/SlicerElastix
-#    分支: master
+#    提交: 2025-11-05 (021d715c1de4db3b0ce3ec2f14345aab1bc1c15a)
 _bundle_ext(SlicerElastix
   https://github.com/lassoan/SlicerElastix.git
-  master)
+  021d715c1de4db3b0ce3ec2f14345aab1bc1c15a)
 
-# 7) Landmark Registration
-#    仓库: Slicer/LandmarkRegistration
-#    分支: master
-_bundle_ext(LandmarkRegistration
-  https://github.com/Slicer/LandmarkRegistration.git
-  master)
+# 8) Landmark Registration (handled via Slicer_BUILD_LandmarkRegistration)
 
 option(RS_ENABLE_BUNDLE_DCM2NII "Bundle SlicerDcm2nii extension (requires compat shim)" OFF)
 if(RS_ENABLE_BUNDLE_DCM2NII)
@@ -266,8 +259,9 @@ list(REMOVE_DUPLICATES Slicer_EXTENSION_SOURCE_DIRS)
 if(NOT RS_ENABLE_BUNDLE_DCM2NII)
   list(FILTER Slicer_EXTENSION_SOURCE_DIRS EXCLUDE REGEX "SlicerDcm2nii$|ext_slicerdcm2nii-src$")
 endif()
-# 清理历史写法遗留的 ext_slicerelastix-src 目录（避免重复注入）
-list(FILTER Slicer_EXTENSION_SOURCE_DIRS EXCLUDE REGEX "ext_slicerelastix-src$")
+# Ensure remote modules handled by core build are not duplicated here
+list(FILTER Slicer_EXTENSION_SOURCE_DIRS EXCLUDE REGEX "/Ext/(LandmarkRegistration|CompareVolumes)$")
+
 message(STATUS "Bundled extensions: ${Slicer_EXTENSION_SOURCE_DIRS}")
 
 # Ensure bundled extensions gracefully handle empty Slicer_USE_FILE by falling back

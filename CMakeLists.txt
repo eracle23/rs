@@ -58,7 +58,7 @@ if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
 endif()
 set(Slicer_DEFAULT_HOME_MODULE "Data" CACHE STRING "Default home module" FORCE)
 # 去掉自定义 Home 模块后，更新常用模块列表（不再包含 Home）
-set(Slicer_DEFAULT_FAVORITE_MODULES "Data, SegmentEditor, VolumeRendering, Transforms")
+set(Slicer_DEFAULT_FAVORITE_MODULES "Data, Volumes, Models, SegmentEditor, Markups, Transforms, CompareVolumes, SampleData")
 
 #
 # Ensure Slicer version components are available early (before SuperBuild/cache setup)
@@ -181,24 +181,39 @@ option(Slicer_BUILD_DOCUMENTATION               "Build documentation (Doxygen, s
 if(WIN32)
   option(Slicer_BUILD_WIN32_CONSOLE_LAUNCHER    "Build ${PROJECT_NAME} launcher executable as a console app on windows (displays console at application start)" OFF)
   option(Slicer_BUILD_WIN32_CONSOLE             "Build application executable as a console app (allows capturing and piping console output)" ON)
+  set(Slicer_BUILD_WIN32_CONSOLE_LAUNCHER OFF CACHE BOOL "Hide console window for end-user launcher" FORCE)
 endif()
 
 option(Slicer_BUILD_DICOM_SUPPORT               "Build application with DICOM support"                ON)
+set(Slicer_BUILD_DICOM_SUPPORT ON CACHE BOOL "Build application with DICOM support" FORCE)
 option(Slicer_BUILD_DIFFUSION_SUPPORT           "Build application with Diffusion support"            OFF)
 option(Slicer_BUILD_EXTENSIONMANAGER_SUPPORT    "Build application with ExtensionManager support"     OFF)
+set(Slicer_BUILD_EXTENSIONMANAGER_SUPPORT ON CACHE BOOL "Enable extension manager support" FORCE)
 option(Slicer_BUILD_MULTIVOLUME_SUPPORT         "Build application with MultiVolume support"          OFF)
+set(Slicer_BUILD_MULTIVOLUME_SUPPORT ON CACHE BOOL "Build application with MultiVolume support" FORCE)
+set(Slicer_BUILD_MultiVolumeExplorer ON CACHE BOOL "Build MultiVolumeExplorer module" FORCE)
+set(Slicer_BUILD_MultiVolumeImporter ON CACHE BOOL "Build MultiVolumeImporter module" FORCE)
 option(Slicer_BUILD_PARAMETERSERIALIZER_SUPPORT "Build application with parameter serializer support" OFF)
 option(Slicer_USE_PYTHONQT                      "Build application with Python support"               ON)
+set(Slicer_USE_PYTHONQT ON CACHE BOOL "Build application with Python support" FORCE)
+set(Slicer_USE_PYTHONQT_WITH_OPENSSL ON CACHE BOOL "Bundle Python SSL support" FORCE)
 option(Slicer_USE_QtTesting                     "Build application with QtTesting support"            OFF)
 option(Slicer_USE_SimpleITK                     "Build application with SimpleITK support"            ON)
 set(Slicer_USE_SimpleITK ON CACHE BOOL "Build application with SimpleITK support" FORCE)
+set(Slicer_BUILD_SimpleFilters ON CACHE BOOL "Build SimpleFilters remote module" FORCE)
+set(Slicer_USE_NUMPY ON CACHE BOOL "Bundle NumPy support" FORCE)
+set(Slicer_USE_SCIPY ON CACHE BOOL "Bundle SciPy support" FORCE)
+set(Slicer_USE_DCMTK_WITH_OPENSSL ON CACHE BOOL "Enable TLS support for DCMTK" FORCE)
 
 option(Slicer_BUILD_BRAINSTOOLS                 "Build application with BRAINSTools module"           OFF)
+set(Slicer_BUILD_BRAINSTOOLS ON CACHE BOOL "Build application with BRAINSTools module" FORCE)
 option(Slicer_BUILD_DataStore                   "Build application with DataStore module"             OFF)
 option(Slicer_BUILD_CompareVolumes              "Build application with ChangeTrackerPy module"       OFF)
+set(Slicer_BUILD_CompareVolumes ON CACHE BOOL "Build application with ChangeTrackerPy module" FORCE)
 option(Slicer_BUILD_LandmarkRegistration        "Build application with LandmarkRegistration module"  ON)
 set(Slicer_BUILD_LandmarkRegistration ON CACHE BOOL "Build application with LandmarkRegistration module" FORCE)
 option(Slicer_BUILD_SurfaceToolbox              "Build application with SurfaceToolbox module"        OFF)
+set(Slicer_BUILD_CLI ON CACHE BOOL "Build core CLI modules" FORCE)
 
 # Enable Slicer built-in modules
 set(Slicer_CLIMODULES_ENABLED
@@ -215,6 +230,13 @@ set(Slicer_CLIMODULES_DISABLED
   )
 set(Slicer_QTLOADABLEMODULES_DISABLED "SlicerWelcome" CACHE STRING "Disable Slicer-branded loadable modules" FORCE)
 set(Slicer_QTSCRIPTEDMODULES_DISABLED "" CACHE STRING "Disable Slicer-branded scripted modules" FORCE)
+list(REMOVE_ITEM Slicer_QTLOADABLEMODULES_DISABLED
+  Data SubjectHierarchy SubjectHierarchyPlugins
+  Volumes Models Transforms Markups VolumeRendering)
+list(REMOVE_ITEM Slicer_QTSCRIPTEDMODULES_DISABLED
+  LandmarkRegistration CompareVolumes SampleData)
+list(REMOVE_ITEM Slicer_CLIMODULES_DISABLED
+  "BRAINSFit")
 
 # Enable/Disable Slicer custom modules: To create a new module, use the SlicerExtensionWizard.
 set(Slicer_EXTENSION_SOURCE_DIRS
@@ -240,6 +262,23 @@ list(APPEND Slicer_EXTENSION_SOURCE_DIRS ${${extension_name}_SOURCE_DIR}/Modules
 
 # 打包第三方扩展（根据 Docs/plugin.md）
 include(${CMAKE_SOURCE_DIR}/SuperBuild/Extensions.cmake)
+
+set(_rs_ext_legacy_root "${CMAKE_BINARY_DIR}/_deps")
+file(TO_CMAKE_PATH "${_rs_ext_legacy_root}" _rs_ext_legacy_root_norm)
+set(_rs_pruned_extension_dirs)
+foreach(_rs_ext_dir IN LISTS Slicer_EXTENSION_SOURCE_DIRS)
+  file(TO_CMAKE_PATH "${_rs_ext_dir}" _rs_ext_dir_norm)
+  if(_rs_ext_dir_norm MATCHES "^${_rs_ext_legacy_root_norm}(/|$)")
+    message(STATUS "Skip legacy extension dir (using Ext/<name>): ${_rs_ext_dir}")
+    continue()
+  endif()
+  list(APPEND _rs_pruned_extension_dirs "${_rs_ext_dir}")
+endforeach()
+set(Slicer_EXTENSION_SOURCE_DIRS "${_rs_pruned_extension_dirs}")
+unset(_rs_pruned_extension_dirs)
+unset(_rs_ext_legacy_root)
+unset(_rs_ext_legacy_root_norm)
+
 list(REMOVE_DUPLICATES Slicer_EXTENSION_SOURCE_DIRS)
 
 # 将扩展源码路径显式传递给 Slicer 超级构建（需在最终值确定后调用）
