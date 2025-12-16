@@ -39,3 +39,7 @@ test_settings.py
 
 # Qt translation compiled files (source .ts files are tracked)
 *.qm
+
+# Required CMake source files
+!CMakeLists.txt
+!**/CMakeLists.txt
