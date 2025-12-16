@@ -1,0 +1,10 @@
+<!DOCTYPE RCC><RCC version="1.0">
+  <qresource>
+    <file>Logos/Bills.png</file>
+    <file>Logos/BIRN-NoText.png</file>
+    <file>Logos/NAC.png</file>
+    <file>Logos/NAMIC.png</file>
+    <file>Logos/NCIGT.png</file>
+    <file>Logos/SPL.png</file>
+  </qresource>
+</RCC>

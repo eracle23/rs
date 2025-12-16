@@ -1,0 +1,6 @@
+[EnvironmentVariables]
+# Force launcher-side scripted module search paths so Program Files installs always ship the modules.
+# 使用 <APPLAUNCHER_DIR>/lib/... 使构建树(exe 在根目录)与安装树均能正确解析
+SLICER_QTSCRIPTEDMODULES_PATHS=<APPLAUNCHER_DIR>/lib/@RS_APP_NAME@-@RS_SLICER_MM@/qt-scripted-modules<PATHSEP><APPLAUNCHER_DIR>/lib/Slicer-@RS_SLICER_MM@/qt-scripted-modules
+# 随安装包一起的 .slicerrc.py：换一台电脑解压后也能自动加载（launcher 会按安装路径展开 APPLAUNCHER_DIR）
+SLICERRC=<APPLAUNCHER_DIR>/lib/@RS_APP_NAME@-@RS_SLICER_MM@/Settings/.slicerrc.py

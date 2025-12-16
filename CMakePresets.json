@@ -1,0 +1,237 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 19,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "win-ninja-rel",
+      "displayName": "Windows Ninja (Release)",
+      "description": "Ninja + MSVC with sccache; tests OFF; Qt from QT5_DIR env.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../RS-build/win-ninja-rel",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "OFF",
+        "Slicer_BUILD_DOCUMENTATION": "OFF",
+        "Slicer_BUILD_QTSCRIPTEDMODULES": "ON",
+        "Slicer_BUILD_EXTENSIONMANAGER_SUPPORT": "ON",
+        "Slicer_USE_PYTHONQT": "ON",
+        "Slicer_BUILD_WIN32_CONSOLE": "OFF",
+        "Slicer_BUILD_WIN32_CONSOLE_LAUNCHER": "OFF",
+        "CMAKE_NINJA_FORCE_RESPONSE_FILE": "ON",
+        "CMAKE_OBJECT_PATH_MAX": "128",
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "ProgramDatabase",
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "CMAKE_C_COMPILER_LAUNCHER": "sccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "sccache",
+        "Qt5_DIR": "$env{QT5_DIR}"
+      }
+    },
+    {
+      "name": "win-ninja-dev",
+      "displayName": "Windows Ninja (RelWithDebInfo)",
+      "inherits": "win-ninja-rel",
+      "binaryDir": "${sourceDir}/../RS-build/win-ninja-dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      }
+    },
+    {
+      "name": "win-ninja-rel-shared",
+      "displayName": "Windows Ninja (Release, shared Slicer)",
+      "inherits": "win-ninja-rel",
+      "cacheVariables": {
+        "slicersources_SOURCE_DIR": "$env{SLICER_SRC_DIR}",
+        "slicersources_BINARY_DIR": "$env{SLICER_BIN_DIR}"
+      }
+    },
+    {
+      "name": "win-ninja-dev-shared",
+      "displayName": "Windows Ninja (RelWithDebInfo, shared Slicer)",
+      "inherits": "win-ninja-dev",
+      "cacheVariables": {
+        "slicersources_SOURCE_DIR": "$env{SLICER_SRC_DIR}",
+        "slicersources_BINARY_DIR": "$env{SLICER_BIN_DIR}"
+      }
+    },
+    {
+      "name": "win-ninja-rel-out",
+      "displayName": "Windows Ninja (Release, out-of-tree)",
+      "inherits": "win-ninja-rel",
+      "binaryDir": "${sourceDir}/../RS-build/win-ninja-rel"
+    },
+    {
+      "name": "win-ninja-dev-out",
+      "displayName": "Windows Ninja (RelWithDebInfo, out-of-tree)",
+      "inherits": "win-ninja-dev",
+      "binaryDir": "${sourceDir}/../RS-build/win-ninja-dev"
+    },
+    {
+      "name": "vs17-dev",
+      "displayName": "VS2022 x64 (RelWithDebInfo)",
+      "description": "Visual Studio 2022 multi-config build; superbuild ON; tests OFF.",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "C:/S/vs-dev",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "C:/S/rs-install",
+        "CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION": "10.0.26100.0",
+        "CMAKE_VERBOSE_MAKEFILE": "ON",
+        "Slicer_SUPERBUILD": "ON",
+        "Slicer_BUILD_TESTING": "OFF",
+        "Slicer_BUILD_QTSCRIPTEDMODULES": "ON",
+        "Slicer_BUILD_EXTENSIONMANAGER_SUPPORT": "ON",
+        "Qt5_DIR": "D:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5"
+      }
+    },
+    {
+      "name": "rs-dev",
+      "displayName": "RS Dev (VS2022)",
+      "description": "RadianceSuite dev build with VS2022; uses rs-build directory.",
+      "inherits": "vs17-dev",
+      "binaryDir": "${sourceDir}/rs-build",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/rs-build/install"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "cfg-inner",
+      "displayName": "Configure inner Slicer (VS2022)",
+      "configurePreset": "vs17-dev",
+      "configuration": "RelWithDebInfo",
+      "targets": ["Slicer-configure"],
+      "jobs": 0
+    },
+    {
+      "name": "build-inner",
+      "displayName": "Build inner Slicer (VS2022)",
+      "configurePreset": "vs17-dev",
+      "configuration": "RelWithDebInfo",
+      "targets": ["Slicer-build"],
+      "jobs": 0
+    },
+    {
+      "name": "install-inner",
+      "displayName": "Install inner Slicer (VS2022)",
+      "configurePreset": "vs17-dev",
+      "configuration": "RelWithDebInfo",
+      "targets": ["Slicer-install"],
+      "jobs": 0
+    },
+    {
+      "name": "build-rel",
+      "configurePreset": "win-ninja-rel",
+      "jobs": 0
+    },
+    {
+      "name": "build-dev",
+      "configurePreset": "win-ninja-dev",
+      "jobs": 0
+    },
+    {
+      "name": "build-rel-shared",
+      "configurePreset": "win-ninja-rel-shared",
+      "jobs": 0
+    },
+    {
+      "name": "build-dev-shared",
+      "configurePreset": "win-ninja-dev-shared",
+      "jobs": 0
+    },
+    {
+      "name": "build-rel-out",
+      "configurePreset": "win-ninja-rel-out",
+      "jobs": 0
+    },
+    {
+      "name": "build-dev-out",
+      "configurePreset": "win-ninja-dev-out",
+      "jobs": 0
+    },
+    {
+      "name": "vs17-dev-rel",
+      "displayName": "VS2022 build (RelWithDebInfo)",
+      "configurePreset": "vs17-dev",
+      "configuration": "RelWithDebInfo",
+      "jobs": 0
+    },
+    {
+      "name": "vs17-dev-dbg",
+      "displayName": "VS2022 build (Debug)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Debug",
+      "jobs": 0
+    },
+    {
+      "name": "vs17-dev-release",
+      "displayName": "VS2022 build (Release)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Release",
+      "jobs": 0
+    },
+    {
+      "name": "cfg-inner-release",
+      "displayName": "Configure inner Slicer (VS2022, Release)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Release",
+      "targets": ["Slicer-configure"],
+      "jobs": 0
+    },
+    {
+      "name": "build-inner-release",
+      "displayName": "Build inner Slicer (VS2022, Release)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Release",
+      "targets": ["Slicer-build"],
+      "jobs": 0
+    },
+    {
+      "name": "install-inner-release",
+      "displayName": "Install inner Slicer (VS2022, Release)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Release",
+      "targets": ["Slicer-install"],
+      "jobs": 0
+    },
+    {
+      "name": "rs-dev-cfg-inner",
+      "displayName": "RS Dev: Configure inner Slicer",
+      "configurePreset": "rs-dev",
+      "configuration": "RelWithDebInfo",
+      "targets": ["Slicer-configure"],
+      "jobs": 0
+    },
+    {
+      "name": "rs-dev-build-inner",
+      "displayName": "RS Dev: Build inner Slicer",
+      "configurePreset": "rs-dev",
+      "configuration": "RelWithDebInfo",
+      "targets": ["Slicer-build"],
+      "jobs": 0
+    },
+    {
+      "name": "rs-dev-install",
+      "displayName": "RS Dev: Install",
+      "configurePreset": "rs-dev",
+      "configuration": "RelWithDebInfo",
+      "targets": ["Slicer-install"],
+      "jobs": 0
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test-rel",
+      "configurePreset": "win-ninja-rel"
+    },
+    {
+      "name": "test-dev",
+      "configurePreset": "win-ninja-dev"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/RadianceToolbar">
+    <file alias="toolbar_home.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_home.svg</file>
+    <file alias="toolbar_data.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_data.svg</file>
+    <file alias="toolbar_volumes.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_volumes.svg</file>
+    <file alias="toolbar_segment.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_segment.svg</file>
+    <file alias="toolbar_render.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_render.svg</file>
+    <file alias="toolbar_settings.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_settings.svg</file>
+    <file alias="toolbar_add_data.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_add_data.svg</file>
+    <file alias="toolbar_dicom.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_dicom.svg</file>
+    <file alias="toolbar_save.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_save.svg</file>
+    <file alias="toolbar_undo.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_undo.svg</file>
+    <file alias="toolbar_redo.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_redo.svg</file>
+    <file alias="toolbar_snapshot.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_snapshot.svg</file>
+    <file alias="toolbar_layout.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_layout.svg</file>
+    <file alias="toolbar_scene_view.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_scene_view.svg</file>
+    <file alias="toolbar_extensions.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_extensions.svg</file>
+    <file alias="toolbar_view_control.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_view_control.svg</file>
+    <file alias="toolbar_window_level.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_window_level.svg</file>
+    <file alias="toolbar_place.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_place.svg</file>
+    <file alias="toolbar_crosshair.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_crosshair.svg</file>
+    <file alias="toolbar_transforms.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_transforms.svg</file>
+    <file alias="toolbar_markups.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_markups.svg</file>
+    <file alias="toolbar_models.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_models.svg</file>
+    <file alias="toolbar_elastix.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_elastix.svg</file>
+  </qresource>
+</RCC>

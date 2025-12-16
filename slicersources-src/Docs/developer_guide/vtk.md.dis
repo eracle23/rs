@@ -1,0 +1,10 @@
+# vtk
+
+This module corresponds to the Python wrapped ``VTK`` C++ classes.
+
+```{automodule} vtk
+:members:
+:undoc-members:
+:show-inheritance:
+:imported-members:
+```

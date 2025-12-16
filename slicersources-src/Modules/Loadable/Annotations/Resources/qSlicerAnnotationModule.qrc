@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>Icons/Annotation.png</file>
+        <file>Icons/UPenn_logo.png</file>
+    </qresource>
+</RCC>
