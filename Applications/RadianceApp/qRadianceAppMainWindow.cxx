@@ -612,19 +612,15 @@ void qRadianceAppMainWindow::applyShellTweaks()
   hideDockWidgetByName(this, "ErrorLogDockWidget");
 
   // ========== 工具栏按钮隐藏 ==========
-  // 隐藏 MainToolBar 中的 "Load Data" 按钮
-  hideActionByName(this, "FileLoadDataAction");
-  hideActionByName(this, "FileAddDataAction");
-
-  // 隐藏扩展管理器按钮（菜单和工具栏中的）
+  // 只隐藏扩展管理器按钮
   hideActionByName(this, "ViewExtensionsManagerAction");
   hideActionByName(this, "ExtensionsManagerAction");
 
-  // 首页左侧栏显示 DICOM：首次显示窗口时切换到 DICOM，并确保左侧面板可见
+  // 首页左侧栏显示：首次显示窗口时切换到 Volumes，并确保左侧面板可见
   QObject::connect(this, &qSlicerMainWindow::initialWindowShown, this, [this]() {
     if (auto selector = this->moduleSelector())
       {
-      selector->selectModule("DICOM");
+      selector->selectModule("Volumes");
       }
     if (auto panel = this->findChild<QDockWidget*>("PanelDockWidget"))
       {
@@ -632,73 +628,60 @@ void qRadianceAppMainWindow::applyShellTweaks()
       panel->raise();
       }
 
-    // ========== 模块过滤：只显示指定的模块 ==========
-    QStringList allowedModules;
-    allowedModules << "DICOM" << "Volumes" << "VolumeRendering"
-                   << "SegmentEditor" << "Transforms" << "Markups"
-                   << "Models" << "Elastix";
+    // ========== 模块下拉菜单过滤：延迟执行以确保菜单已构建 ==========
+    QTimer::singleShot(500, this, [this]() {
+      QStringList allowedModules;
+      allowedModules << "DICOM" << "Volumes" << "VolumeRendering"
+                     << "SegmentEditor" << "Transforms" << "Markups"
+                     << "Models" << "Elastix";
 
-    qSlicerApplication* app = qSlicerApplication::application();
-    if (app && app->moduleManager())
-      {
-      qSlicerModuleFactoryManager* factoryManager = app->moduleManager()->factoryManager();
-      if (factoryManager)
+      if (auto selector = this->moduleSelector())
         {
-        QStringList allModules = factoryManager->instantiatedModuleNames();
-        QStringList modulesToHide;
-        foreach (const QString& moduleName, allModules)
+        if (auto comboBox = selector->findChild<ctkMenuComboBox*>())
           {
-          if (!allowedModules.contains(moduleName))
+          if (auto menu = comboBox->menu())
             {
-            modulesToHide << moduleName;
-            }
-          }
-        // 设置隐藏的模块
-        factoryManager->setModulesToIgnore(modulesToHide);
-        }
-      }
-
-    // 刷新模块选择器
-    if (auto selector = this->moduleSelector())
-      {
-      if (auto comboBox = selector->findChild<ctkMenuComboBox*>())
-        {
-        if (auto menu = comboBox->menu())
-          {
-          // 隐藏不在允许列表中的菜单项
-          foreach (QAction* action, menu->actions())
-            {
-            if (action->menu())
-              {
-              // 子菜单 - 检查是否需要隐藏
-              bool hasVisibleChild = false;
-              foreach (QAction* subAction, action->menu()->actions())
+            // 递归隐藏不在允许列表中的菜单项
+            std::function<bool(QMenu*)> filterMenu = [&](QMenu* m) -> bool {
+              bool hasAllowedModule = false;
+              foreach (QAction* action, m->actions())
                 {
-                QString moduleName = subAction->data().toString();
-                if (allowedModules.contains(moduleName))
+                if (action->isSeparator())
                   {
-                  hasVisibleChild = true;
-                  subAction->setVisible(true);
+                  continue;
                   }
-                else if (!moduleName.isEmpty())
+                if (action->menu())
                   {
-                  subAction->setVisible(false);
+                  // 子菜单 - 递归处理
+                  bool subHasAllowed = filterMenu(action->menu());
+                  action->setVisible(subHasAllowed);
+                  if (subHasAllowed) hasAllowedModule = true;
+                  }
+                else
+                  {
+                  QString moduleName = action->data().toString();
+                  if (!moduleName.isEmpty())
+                    {
+                    if (allowedModules.contains(moduleName))
+                      {
+                      action->setVisible(true);
+                      hasAllowedModule = true;
+                      }
+                    else
+                      {
+                      action->setVisible(false);
+                      }
+                    }
+                  // 忽略没有 moduleName 的项（不影响 hasAllowedModule）
                   }
                 }
-              action->setVisible(hasVisibleChild);
-              }
-            else
-              {
-              QString moduleName = action->data().toString();
-              if (!moduleName.isEmpty() && !allowedModules.contains(moduleName))
-                {
-                action->setVisible(false);
-                }
-              }
+              return hasAllowedModule;
+            };
+            filterMenu(menu);
             }
           }
         }
-      }
+    });
   });
 }
 
