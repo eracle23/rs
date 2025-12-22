@@ -51,7 +51,7 @@ set(Slicer_ORGANIZATION_NAME   "Vision Magic Ecosystem" CACHE STRING "Organizati
 # Default home and favorite modules
 set(SlicerApp_APPLICATION_NAME "Vision Magic Ecosystem" CACHE STRING "Application name" FORCE)
 set(SlicerApp_APPLICATION_DISPLAY_NAME "Vision Magic Ecosystem" CACHE STRING "Application display name" FORCE)
-set(Slicer_DISCLAIMER_AT_STARTUP "Thank you for using %1!<br><br>This software is intended for research use only and is not cleared for diagnostic use." CACHE STRING "Disclaimer text" FORCE)
+set(Slicer_DISCLAIMER_AT_STARTUP "感谢您使用 %1！<br><br>本软件仅供研究使用，未获得诊断用途的许可。" CACHE STRING "Disclaimer text" FORCE)
 set(Slicer_EXTENSIONS_DIRBASENAME "VisionMagicExtensions" CACHE STRING "Extensions directory name" FORCE)
 if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
   message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")

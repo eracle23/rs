@@ -38,6 +38,7 @@ public slots:
   void on_HelpAboutRadianceAppAction_triggered();
   // Keep access consistent with base class (qSlicerMainWindow declares this in public slots)
   void setHomeModuleCurrent() override;
+  void on_FavoriteModulesChanged() override;
 
 protected:
   qRadianceAppMainWindow(qRadianceAppMainWindowPrivate* pimpl, QWidget* parent);

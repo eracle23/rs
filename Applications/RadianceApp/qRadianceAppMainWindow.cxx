@@ -131,7 +131,18 @@ QIcon moduleIconOverride(const QString& moduleName)
     {QStringLiteral("rendering"), "toolbar_render.svg"},
     {QStringLiteral("settings"), "toolbar_settings.svg"},
     {QStringLiteral("applicationsettings"), "toolbar_settings.svg"},
-    {QStringLiteral("preferences"), "toolbar_settings.svg"}
+    {QStringLiteral("preferences"), "toolbar_settings.svg"},
+    // 新增模块图标映射
+    {QStringLiteral("transforms"), "toolbar_transforms.svg"},
+    {QStringLiteral("transform"), "toolbar_transforms.svg"},
+    {QStringLiteral("markups"), "toolbar_markups.svg"},
+    {QStringLiteral("markup"), "toolbar_markups.svg"},
+    {QStringLiteral("fiducials"), "toolbar_markups.svg"},
+    {QStringLiteral("models"), "toolbar_models.svg"},
+    {QStringLiteral("model"), "toolbar_models.svg"},
+    {QStringLiteral("elastix"), "toolbar_elastix.svg"},
+    {QStringLiteral("slicerelastix"), "toolbar_elastix.svg"},
+    {QStringLiteral("registration"), "toolbar_elastix.svg"}
   };
 
   const auto it = moduleIconMap.constFind(key);
@@ -258,10 +269,15 @@ QIcon actionIconOverride(QAction* action)
     {"toolbar_layout.svg", {"layout", u8"布局", u8"视图布局"}},
     {"toolbar_view_control.svg", {"adjust view", "view transform", "view navigation", u8"视图控制", u8"视图调整"}},
     {"toolbar_window_level.svg", {"window/level", "window level", "windowlevel", u8"窗宽", u8"窗位"}},
-    {"toolbar_place.svg", {"place", "markups", "fiducial", "annotation", u8"放置", u8"标记"}},
+    {"toolbar_place.svg", {"place", "fiducial", "annotation", u8"放置"}},
     {"toolbar_crosshair.svg", {"crosshair", u8"十字光标", u8"十字线"}},
     {"toolbar_home.svg", {"home", u8"主页"}},
-    {"toolbar_settings.svg", {"settings", "preferences", "appearance", u8"设置", u8"首选项"}}
+    {"toolbar_settings.svg", {"settings", "preferences", "appearance", u8"设置", u8"首选项"}},
+    // 新增模块图标规则
+    {"toolbar_transforms.svg", {"transform", u8"变换", u8"变形"}},
+    {"toolbar_markups.svg", {"markups", "markup", u8"标记", u8"标记点"}},
+    {"toolbar_models.svg", {"models", "model", u8"模型", u8"三维模型"}},
+    {"toolbar_elastix.svg", {"elastix", "registration", u8"配准", u8"弹性配准"}}
   };
 
   for (const ActionIconRule& rule : kActionIconRules)
@@ -1100,5 +1116,76 @@ void qRadianceAppMainWindow::setHomeModuleCurrent()
   if (d->ModuleSelectorToolBar)
   {
     d->ModuleSelectorToolBar->selectModule(QStringLiteral("Welcome"));
+  }
+}
+
+//-----------------------------------------------------------------------------
+void qRadianceAppMainWindow::on_FavoriteModulesChanged()
+{
+  Q_D(qRadianceAppMainWindow);
+  
+  // 在调用基类之前，先给所有收藏模块的 action 设置图标
+  // 因为基类的 addFavoriteModule 会跳过没有图标的模块
+  QStringList favoriteModules = QSettings().value("Modules/FavoriteModules").toStringList();
+  const QColor accentColor = d->brandAccentColor();
+  
+  // 创建一个默认占位图标
+  QIcon defaultIcon = d->createModuleFinderIcon(accentColor);
+  
+  qSlicerModuleManager* moduleManager = qSlicerApplication::application()->moduleManager();
+  if (moduleManager)
+  {
+    for (const QString& moduleName : favoriteModules)
+    {
+      qSlicerAbstractCoreModule* coreModule = moduleManager->module(moduleName);
+      qSlicerAbstractModule* module = qobject_cast<qSlicerAbstractModule*>(coreModule);
+      if (module)
+      {
+        QAction* action = module->action();
+        if (action && action->icon().isNull())
+        {
+          // 尝试设置品牌图标
+          QIcon brandedIcon = d->brandModuleByName(moduleName, accentColor);
+          if (!brandedIcon.isNull())
+          {
+            action->setIcon(brandedIcon);
+          }
+          else if (!module->icon().isNull())
+          {
+            // 使用模块自己的图标
+            action->setIcon(d->createModuleIcon(module->icon(), accentColor));
+          }
+          else
+          {
+            // 使用默认占位图标
+            action->setIcon(defaultIcon);
+          }
+        }
+      }
+    }
+  }
+  
+  // 现在调用基类实现，构建收藏模块工具栏
+  this->Superclass::on_FavoriteModulesChanged();
+  
+  // 再次确保工具栏上的按钮使用品牌图标
+  if (d->ModuleToolBar)
+  {
+    for (QAction* action : d->ModuleToolBar->actions())
+    {
+      if (!action || action->isSeparator())
+      {
+        continue;
+      }
+      const QString moduleName = action->data().toString();
+      if (!moduleName.isEmpty())
+      {
+        QIcon brandedIcon = d->brandModuleByName(moduleName, accentColor);
+        if (!brandedIcon.isNull())
+        {
+          action->setIcon(brandedIcon);
+        }
+      }
+    }
   }
 }

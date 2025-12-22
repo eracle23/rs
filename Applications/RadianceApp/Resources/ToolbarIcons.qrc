@@ -20,5 +20,9 @@
     <file alias="toolbar_window_level.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_window_level.svg</file>
     <file alias="toolbar_place.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_place.svg</file>
     <file alias="toolbar_crosshair.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_crosshair.svg</file>
+    <file alias="toolbar_transforms.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_transforms.svg</file>
+    <file alias="toolbar_markups.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_markups.svg</file>
+    <file alias="toolbar_models.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_models.svg</file>
+    <file alias="toolbar_elastix.svg">../../../Modules/Scripted/Home/Resources/Icons/Toolbar/toolbar_elastix.svg</file>
   </qresource>
 </RCC>
