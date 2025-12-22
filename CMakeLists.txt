@@ -56,9 +56,9 @@ set(Slicer_EXTENSIONS_DIRBASENAME "AliceExtensions" CACHE STRING "Extensions dir
 if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
   message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")
 endif()
-set(Slicer_DEFAULT_HOME_MODULE "Data" CACHE STRING "Default home module" FORCE)
-# 去掉自定义 Home 模块后，更新常用模块列表（不再包含 Home）
-set(Slicer_DEFAULT_FAVORITE_MODULES "Data, Volumes, Models, SegmentEditor, Markups, Transforms, CompareVolumes, SampleData")
+set(Slicer_DEFAULT_HOME_MODULE "DICOM" CACHE STRING "Default home module" FORCE)
+# 常用模块列表（移除 Data, CompareVolumes, SampleData）
+set(Slicer_DEFAULT_FAVORITE_MODULES "Volumes, Models, SegmentEditor, Markups, Transforms")
 
 #
 # Ensure Slicer version components are available early (before SuperBuild/cache setup)
@@ -197,6 +197,13 @@ option(Slicer_BUILD_PARAMETERSERIALIZER_SUPPORT "Build application with paramete
 option(Slicer_USE_PYTHONQT                      "Build application with Python support"               ON)
 set(Slicer_USE_PYTHONQT ON CACHE BOOL "Build application with Python support" FORCE)
 set(Slicer_USE_PYTHONQT_WITH_OPENSSL ON CACHE BOOL "Bundle Python SSL support" FORCE)
+
+# 国际化支持
+option(Slicer_BUILD_I18N_SUPPORT                "Build application with internationalization support" ON)
+set(Slicer_BUILD_I18N_SUPPORT ON CACHE BOOL "Build application with internationalization support" FORCE)
+set(Slicer_LANGUAGES "zh_CN" CACHE STRING "Supported languages for internationalization" FORCE)
+mark_as_superbuild(Slicer_BUILD_I18N_SUPPORT:BOOL)
+mark_as_superbuild(Slicer_LANGUAGES:STRING)
 option(Slicer_USE_QtTesting                     "Build application with QtTesting support"            OFF)
 option(Slicer_USE_SimpleITK                     "Build application with SimpleITK support"            ON)
 set(Slicer_USE_SimpleITK ON CACHE BOOL "Build application with SimpleITK support" FORCE)
@@ -326,3 +333,22 @@ add_subdirectory(${slicersources_SOURCE_DIR} ${slicersources_BINARY_DIR})
 # Convenience target to avoid triggering the mother 'Slicer' target by mistake
 add_custom_target(Slicer-fast
   DEPENDS Slicer-configure Slicer-build Slicer-install)
+
+#------------------------------------------------------------------------------
+# 中文翻译支持
+# 将SlicerLanguageTranslations翻译文件编译并安装到应用中
+#------------------------------------------------------------------------------
+set(SLICER_TRANSLATIONS_DIR "${CMAKE_SOURCE_DIR}/SlicerLanguageTranslations-main/translations"
+    CACHE PATH "SlicerLanguageTranslations翻译文件目录")
+set(SLICER_TRANSLATIONS_LANGUAGES "zh-CN" CACHE STRING "要编译的翻译语言列表")
+set(SLICER_TRANSLATIONS_COMPONENTS "Slicer;CTK" CACHE STRING "要编译的翻译组件列表")
+
+mark_as_superbuild(SLICER_TRANSLATIONS_DIR:PATH)
+mark_as_superbuild(SLICER_TRANSLATIONS_LANGUAGES:STRING)
+mark_as_superbuild(SLICER_TRANSLATIONS_COMPONENTS:STRING)
+
+if(EXISTS "${SLICER_TRANSLATIONS_DIR}" AND Slicer_BUILD_I18N_SUPPORT)
+  message(STATUS "SlicerLanguageTranslations: ${SLICER_TRANSLATIONS_DIR}")
+  message(STATUS "  Languages: ${SLICER_TRANSLATIONS_LANGUAGES}")
+  message(STATUS "  Components: ${SLICER_TRANSLATIONS_COMPONENTS}")
+endif()

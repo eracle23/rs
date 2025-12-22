@@ -18,6 +18,11 @@
 
 project(RadianceApp)
 
+# MSVC UTF-8 源文件编码支持（包含中文字符）
+if(MSVC)
+  add_compile_options(/utf-8)
+endif()
+
 include(SlicerMacroBuildApplication)
 
 # --------------------------------------------------------------------------
@@ -164,3 +169,63 @@ install(CODE
 
 # Build and install Windows association helper (per-user, default apps UI launcher)
 add_subdirectory(Utilities/AssocPrompt)
+
+# --------------------------------------------------------------------------
+# SlicerLanguageTranslations - 集成中文翻译
+# --------------------------------------------------------------------------
+# CMAKE_CURRENT_SOURCE_DIR = Applications/RadianceApp, 回退到项目根目录
+get_filename_component(RS_PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+set(SLICER_TRANSLATIONS_DIR "${RS_PROJECT_ROOT}/SlicerLanguageTranslations-main/translations")
+
+if(Slicer_BUILD_I18N_SUPPORT AND EXISTS "${SLICER_TRANSLATIONS_DIR}")
+  find_package(Qt5 COMPONENTS LinguistTools QUIET)
+  if(Qt5LinguistTools_FOUND)
+    message(STATUS "Building SlicerLanguageTranslations for zh-CN...")
+    
+    # 收集中文翻译 .ts 文件
+    file(GLOB ZH_CN_TS_FILES
+      "${SLICER_TRANSLATIONS_DIR}/Slicer_zh-CN.ts"
+      "${SLICER_TRANSLATIONS_DIR}/CTK_zh-CN.ts"
+      "${SLICER_TRANSLATIONS_DIR}/LanguagePacks_zh-CN.ts"
+    )
+    
+    set(QM_OUTPUT_DIR "${CMAKE_BINARY_DIR}/${Slicer_QM_DIR}")
+    file(MAKE_DIRECTORY "${QM_OUTPUT_DIR}")
+    
+    set(ZH_CN_QM_FILES)
+    foreach(ts_file ${ZH_CN_TS_FILES})
+      get_filename_component(ts_name "${ts_file}" NAME_WE)
+      set(qm_file "${QM_OUTPUT_DIR}/${ts_name}.qm")
+      
+      add_custom_command(
+        OUTPUT "${qm_file}"
+        COMMAND Qt5::lrelease "${ts_file}" -qm "${qm_file}"
+        DEPENDS "${ts_file}"
+        COMMENT "Generating ${ts_name}.qm from .ts"
+        VERBATIM
+      )
+      list(APPEND ZH_CN_QM_FILES "${qm_file}")
+    endforeach()
+    
+    add_custom_target(SlicerTranslations_zh_CN ALL
+      DEPENDS ${ZH_CN_QM_FILES}
+      COMMENT "Building Chinese translations"
+    )
+    
+    # 安装 .qm 文件
+    install(FILES ${ZH_CN_QM_FILES}
+      DESTINATION "${Slicer_INSTALL_QM_DIR}"
+      COMPONENT Runtime
+    )
+    
+    message(STATUS "Chinese translations configured: ${ZH_CN_TS_FILES}")
+  else()
+    message(WARNING "Qt5 LinguistTools not found, skipping translations")
+  endif()
+else()
+  if(NOT Slicer_BUILD_I18N_SUPPORT)
+    message(STATUS "I18N support disabled, skipping translations")
+  elseif(NOT EXISTS "${SLICER_TRANSLATIONS_DIR}")
+    message(WARNING "SlicerLanguageTranslations not found at ${SLICER_TRANSLATIONS_DIR}")
+  endif()
+endif()

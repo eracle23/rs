@@ -339,6 +339,42 @@ file(WRITE "${_rs_ext_init}" [=[
 set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${_rs_ext_init}" CACHE STRING "Radiance extension init hook" FORCE)
 ```
 
+## 中文翻译
+
+本项目默认使用中文界面，翻译文件来自 `SlicerLanguageTranslations-main`。
+
+### 自动部署（推荐）
+
+使用 `Invoke-RadianceBuild.ps1` 构建时会**自动部署翻译**，无需手动操作：
+
+```powershell
+pwsh Tools/Invoke-RadianceBuild.ps1 -Preset vs17-dev -InnerOnly -InnerConfig RelWithDebInfo -Jobs 6
+```
+
+### 手动部署
+
+如需手动部署翻译（例如更新翻译后）：
+
+```powershell
+# 自动检测安装目录
+pwsh Tools/Deploy-Translations.ps1 -BuildDir "C:/S/vs-dev/Slicer-build"
+
+# 或指定输出目录
+pwsh Tools/Deploy-Translations.ps1 -OutputDir "C:/S/rs-install/bin/translations"
+
+# 如果Qt路径检测失败，手动指定
+pwsh Tools/Deploy-Translations.ps1 -QtDir "C:/Qt/5.15.2/msvc2019_64" -OutputDir "C:/S/rs-install/bin/translations"
+```
+
+### 配置说明
+
+* **默认语言**：`zh_CN`（在 `DefaultSettings.ini` 中配置）
+* **国际化已启用**：`Slicer_BUILD_I18N_SUPPORT=ON`
+* 翻译源文件：`SlicerLanguageTranslations-main/translations/`
+  * `Slicer_zh-CN.ts` - Slicer核心界面
+  * `CTK_zh-CN.ts` - CTK库
+* 编译后的 `.qm` 文件位置：`<安装目录>/bin/translations/`
+
 ## 常用命令速查
 
 * 顶层配置：`cmake --preset vs17-dev`
@@ -346,3 +382,4 @@ set(CMAKE_PROJECT_TOP_LEVEL_INCLUDES "${_rs_ext_init}" CACHE STRING "Radiance ex
 * 内层手工构建：`cmake --build C:/S/vs-dev/Slicer-build --config RelWithDebInfo -- /m:6`
 * 内层安装：`cmake --build C:/S/vs-dev/Slicer-build --config RelWithDebInfo --target INSTALL -- /m:6`
 * 打包（NSIS）：`cmake --build C:/S/vs-dev/Slicer-build --config RelWithDebInfo --target package -- /m:6`
+* **部署中文翻译**：`pwsh Tools/Deploy-Translations.ps1 -OutputDir "C:/S/rs-install/bin/translations"`

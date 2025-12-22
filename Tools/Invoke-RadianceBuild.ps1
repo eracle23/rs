@@ -1177,6 +1177,20 @@ if (-not $success -and $LASTEXITCODE -ne 0 -and ($effectivePreset -like 'win-nin
 
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 
+# 部署中文翻译到安装目录
+Write-Host "Deploying Chinese translations..." -ForegroundColor Green
+$deployScript = Join-Path $PSScriptRoot 'Deploy-Translations.ps1'
+if (Test-Path $deployScript) {
+  try {
+    & $deployScript -BuildDir (Join-Path $buildDir 'Slicer-build') -QtDir $QtDir
+  } catch {
+    Write-Warning "Translation deployment failed: $_"
+    Write-Warning "You can manually run: pwsh Tools/Deploy-Translations.ps1 -OutputDir <install-dir>/bin/translations"
+  }
+} else {
+  Write-Warning "Deploy-Translations.ps1 not found, skipping translation deployment"
+}
+
 if ($Package) {
   Write-Host "Packaging (NSIS via CPack, with Finish checkbox injection) ..." -ForegroundColor Green
   # Prefer running CPack directly so we can pass CPACK_PROJECT_CONFIG_FILE to force

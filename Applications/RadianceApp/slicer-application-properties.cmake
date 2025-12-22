@@ -1,22 +1,30 @@
 set(APPLICATION_NAME
-  Alice
+  VisionMagic
   )
 set(APPLICATION_DISPLAY_NAME
-  "Alice Studio"
+  "医学影像三维重建软件（Vision Magic Ecosystem）"
   )
 
 set(VERSION_MAJOR
-  0
+  1
   )
 set(VERSION_MINOR
-  1
+  0
   )
 set(VERSION_PATCH
   0
   )
+set(VERSION_TWEAK
+  2
+  )
+
+# 用于显示的版本字符串
+set(VERSION_RELEASE
+  "V1"
+  )
 
 set(DESCRIPTION_SUMMARY
-  "A re-skinned medical imaging workstation built on Slicer"
+  "医学影像三维重建软件 - Medical Imaging 3D Reconstruction Software"
   )
 set(DESCRIPTION_FILE
   ${Slicer_SOURCE_DIR}/README.md

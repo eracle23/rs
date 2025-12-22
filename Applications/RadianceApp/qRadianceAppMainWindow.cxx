@@ -377,13 +377,20 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
     {
     this->FileMenu->menuAction()->setText(qRadianceAppMainWindow::tr("Workspace"));
     }
+  // 隐藏 Edit 菜单
   if (this->EditMenu)
     {
-    this->EditMenu->menuAction()->setVisible(true);
+    this->EditMenu->menuAction()->setVisible(false);
     }
+  // 隐藏 View 菜单
   if (this->ViewMenu)
     {
-    this->ViewMenu->menuAction()->setVisible(true);
+    this->ViewMenu->menuAction()->setVisible(false);
+    }
+  // 隐藏 Support 菜单（原 Help 菜单）
+  if (this->HelpMenu)
+    {
+    this->HelpMenu->menuAction()->setVisible(false);
     }
   if (this->LayoutMenu)
     {
@@ -603,11 +610,25 @@ void qRadianceAppMainWindow::applyShellTweaks()
   hideDockWidgetByName(this, "PythonConsoleDockWidget");
   hideDockWidgetByName(this, "ErrorLogDockWidget");
 
-  // 首页左侧栏显示 Data：首次显示窗口时切换到 Data，并确保左侧面板可见
+  // ========== 工具栏按钮隐藏 ==========
+  // 隐藏 MainToolBar 中的 "Load Data" 按钮
+  hideActionByName(this, "FileLoadDataAction");
+  hideActionByName(this, "FileAddDataAction");
+
+  // 隐藏扩展管理器按钮
+  hideActionByName(this, "ViewExtensionsManagerAction");
+
+  // 隐藏 DialogToolBar（扩展管理器工具栏）
+  if (auto* dialogToolBar = this->findChild<QToolBar*>("DialogToolBar"))
+    {
+    dialogToolBar->setVisible(false);
+    }
+
+  // 首页左侧栏显示 DICOM：首次显示窗口时切换到 DICOM，并确保左侧面板可见
   QObject::connect(this, &qSlicerMainWindow::initialWindowShown, this, [this]() {
     if (auto selector = this->moduleSelector())
       {
-      selector->selectModule("Data");
+      selector->selectModule("DICOM");
       }
     if (auto panel = this->findChild<QDockWidget*>("PanelDockWidget"))
       {
