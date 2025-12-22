@@ -26,6 +26,8 @@
 #include "vtkSlicerVersionConfigure.h" // For Slicer_MAIN_PROJECT_VERSION_FULL
 
 // Qt includes
+#include <QCoreApplication>
+#include <QGuiApplication>
 #include <QFont>
 #include <QLinearGradient>
 #include <QPainter>
@@ -109,6 +111,10 @@ int SlicerAppMain(int argc, char* argv[])
     {
     return app.returnCode();
     }
+
+  // 设置任务栏和系统显示的应用程序名称
+  QCoreApplication::setApplicationName(QString::fromUtf8("VisionMagic"));
+  QGuiApplication::setApplicationDisplayName(QString::fromUtf8("医学影像三维重建软件"));
 
   // 默认配置通过资源文件 DefaultSettings.ini 提供（Styles/Style、Modules/HomeModule）。
   // 此处不额外覆写用户偏好，保持简洁设计。
