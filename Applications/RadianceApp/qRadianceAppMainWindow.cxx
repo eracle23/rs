@@ -66,6 +66,7 @@
 #include "qSlicerModuleFactoryFilterModel.h"
 #include "qSlicerModuleFinderDialog.h"
 #include "qSlicerModuleManager.h"
+#include "qSlicerModuleFactoryManager.h"
 #include "qSlicerModuleSelectorToolBar.h"
 #include "qSlicerModulesListView.h"
 #include "qSlicerLayoutManager.h"
@@ -615,14 +616,9 @@ void qRadianceAppMainWindow::applyShellTweaks()
   hideActionByName(this, "FileLoadDataAction");
   hideActionByName(this, "FileAddDataAction");
 
-  // 隐藏扩展管理器按钮
+  // 隐藏扩展管理器按钮（菜单和工具栏中的）
   hideActionByName(this, "ViewExtensionsManagerAction");
-
-  // 隐藏 DialogToolBar（扩展管理器工具栏）
-  if (auto* dialogToolBar = this->findChild<QToolBar*>("DialogToolBar"))
-    {
-    dialogToolBar->setVisible(false);
-    }
+  hideActionByName(this, "ExtensionsManagerAction");
 
   // 首页左侧栏显示 DICOM：首次显示窗口时切换到 DICOM，并确保左侧面板可见
   QObject::connect(this, &qSlicerMainWindow::initialWindowShown, this, [this]() {
@@ -634,6 +630,74 @@ void qRadianceAppMainWindow::applyShellTweaks()
       {
       panel->show();
       panel->raise();
+      }
+
+    // ========== 模块过滤：只显示指定的模块 ==========
+    QStringList allowedModules;
+    allowedModules << "DICOM" << "Volumes" << "VolumeRendering"
+                   << "SegmentEditor" << "Transforms" << "Markups"
+                   << "Models" << "Elastix";
+
+    qSlicerApplication* app = qSlicerApplication::application();
+    if (app && app->moduleManager())
+      {
+      qSlicerModuleFactoryManager* factoryManager = app->moduleManager()->factoryManager();
+      if (factoryManager)
+        {
+        QStringList allModules = factoryManager->instantiatedModuleNames();
+        QStringList modulesToHide;
+        foreach (const QString& moduleName, allModules)
+          {
+          if (!allowedModules.contains(moduleName))
+            {
+            modulesToHide << moduleName;
+            }
+          }
+        // 设置隐藏的模块
+        factoryManager->setModulesToIgnore(modulesToHide);
+        }
+      }
+
+    // 刷新模块选择器
+    if (auto selector = this->moduleSelector())
+      {
+      if (auto comboBox = selector->findChild<ctkMenuComboBox*>())
+        {
+        if (auto menu = comboBox->menu())
+          {
+          // 隐藏不在允许列表中的菜单项
+          foreach (QAction* action, menu->actions())
+            {
+            if (action->menu())
+              {
+              // 子菜单 - 检查是否需要隐藏
+              bool hasVisibleChild = false;
+              foreach (QAction* subAction, action->menu()->actions())
+                {
+                QString moduleName = subAction->data().toString();
+                if (allowedModules.contains(moduleName))
+                  {
+                  hasVisibleChild = true;
+                  subAction->setVisible(true);
+                  }
+                else if (!moduleName.isEmpty())
+                  {
+                  subAction->setVisible(false);
+                  }
+                }
+              action->setVisible(hasVisibleChild);
+              }
+            else
+              {
+              QString moduleName = action->data().toString();
+              if (!moduleName.isEmpty() && !allowedModules.contains(moduleName))
+                {
+                action->setVisible(false);
+                }
+              }
+            }
+          }
+        }
       }
   });
 }

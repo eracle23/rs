@@ -57,8 +57,8 @@ if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
   message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")
 endif()
 set(Slicer_DEFAULT_HOME_MODULE "DICOM" CACHE STRING "Default home module" FORCE)
-# 常用模块列表（移除 Data, CompareVolumes, SampleData）
-set(Slicer_DEFAULT_FAVORITE_MODULES "Volumes, Models, SegmentEditor, Markups, Transforms")
+# 常用模块列表：DICOM, Volumes, VolumeRendering, SegmentEditor, Transforms, Markups, Models, Elastix
+set(Slicer_DEFAULT_FAVORITE_MODULES "DICOM, Volumes, VolumeRendering, SegmentEditor, Transforms, Markups, Models, Elastix")
 
 #
 # Ensure Slicer version components are available early (before SuperBuild/cache setup)

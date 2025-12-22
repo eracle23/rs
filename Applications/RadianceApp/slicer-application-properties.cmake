@@ -15,12 +15,12 @@ set(VERSION_PATCH
   0
   )
 set(VERSION_TWEAK
-  2
+  3
   )
 
 # 用于显示的版本字符串
 set(VERSION_RELEASE
-  "V1"
+  "V1.0.0.3"
   )
 
 set(DESCRIPTION_SUMMARY

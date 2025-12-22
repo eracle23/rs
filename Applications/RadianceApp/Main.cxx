@@ -46,7 +46,7 @@ namespace
 {
 
 //----------------------------------------------------------------------------
-QPixmap createAliceSplashPixmap()
+QPixmap createVisionMagicSplashPixmap()
 {
   const QSize splashSize(640, 360);
   QPixmap splashPixmap(splashSize);
@@ -55,44 +55,60 @@ QPixmap createAliceSplashPixmap()
   QPainter painter(&splashPixmap);
   painter.setRenderHint(QPainter::Antialiasing, true);
 
+  // Background gradient - professional blue theme
   QLinearGradient background(0.0, 0.0, 0.0, splashSize.height());
-  background.setColorAt(0.0, QColor("#5a6cff"));
-  background.setColorAt(1.0, QColor("#1c2443"));
+  background.setColorAt(0.0, QColor("#1a237e"));  // Deep indigo
+  background.setColorAt(1.0, QColor("#0d1421"));  // Dark navy
   painter.fillRect(splashPixmap.rect(), background);
 
+  // Accent overlay
   QLinearGradient accentOverlay(0.0, splashSize.height() * 0.25, splashSize.width(), splashSize.height());
-  accentOverlay.setColorAt(0.0, QColor(255, 255, 255, 24));
-  accentOverlay.setColorAt(1.0, QColor(84, 104, 255, 128));
+  accentOverlay.setColorAt(0.0, QColor(255, 255, 255, 20));
+  accentOverlay.setColorAt(1.0, QColor(33, 150, 243, 100));
   painter.setBrush(accentOverlay);
   painter.setPen(Qt::NoPen);
-  const QRectF accentRect(40.0, splashSize.height() * 0.35, splashSize.width() - 80.0, splashSize.height() * 0.45);
-  painter.drawRoundedRect(accentRect, 42.0, 42.0);
+  const QRectF accentRect(40.0, splashSize.height() * 0.30, splashSize.width() - 80.0, splashSize.height() * 0.50);
+  painter.drawRoundedRect(accentRect, 24.0, 24.0);
 
+  // Main title - Chinese (use Microsoft YaHei for better Chinese rendering)
   painter.setPen(QColor("#ffffff"));
-  QFont titleFont("Segoe UI", 36, QFont::Bold);
+  QFont titleFont("Microsoft YaHei", 28, QFont::Bold);
   painter.setFont(titleFont);
-  const QRectF titleRect(60.0, splashSize.height() * 0.24, splashSize.width() - 120.0, 60.0);
-  painter.drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter, QObject::tr("Alice Studio"));
+  const QRectF titleRect(60.0, splashSize.height() * 0.18, splashSize.width() - 120.0, 50.0);
+  painter.drawText(titleRect, Qt::AlignLeft | Qt::AlignVCenter,
+                   QString::fromUtf8("\xe5\x8c\xbb\xe5\xad\xa6\xe5\xbd\xb1\xe5\x83\x8f\xe4\xb8\x89\xe7\xbb\xb4\xe9\x87\x8d\xe5\xbb\xba\xe8\xbd\xaf\xe4\xbb\xb6"));  // 医学影像三维重建软件
 
-  painter.setPen(QColor(255, 255, 255, 200));
-  QFont taglineFont("Segoe UI", 14);
-  painter.setFont(taglineFont);
-  const QRectF taglineRect(60.0, splashSize.height() * 0.24 + 70.0, splashSize.width() - 120.0, 40.0);
-  painter.drawText(taglineRect, Qt::AlignLeft | Qt::AlignVCenter, QObject::tr("Curated imaging workspace built on Slicer technology"));
+  // Subtitle - English
+  painter.setPen(QColor(255, 255, 255, 220));
+  QFont subtitleFont("Segoe UI", 16, QFont::Normal);
+  painter.setFont(subtitleFont);
+  const QRectF subtitleRect(60.0, splashSize.height() * 0.18 + 55.0, splashSize.width() - 120.0, 30.0);
+  painter.drawText(subtitleRect, Qt::AlignLeft | Qt::AlignVCenter,
+                   QString("Vision Magic Ecosystem"));
 
-  painter.setPen(QColor(255, 255, 255, 160));
+  // Version info
+  painter.setPen(QColor(255, 255, 255, 180));
   QFont versionFont("Segoe UI", 12, QFont::DemiBold);
   painter.setFont(versionFont);
-  const QRectF versionRect(60.0, splashSize.height() - 80.0, splashSize.width() - 120.0, 24.0);
+  const QRectF versionRect(60.0, splashSize.height() - 85.0, splashSize.width() - 120.0, 24.0);
   painter.drawText(versionRect, Qt::AlignLeft | Qt::AlignVCenter,
-                   QObject::tr("Initializing please wait..."));
+                   QString("V1.0.0.3"));
 
-  painter.setPen(QColor(255, 255, 255, 120));
-  QFont metaFont("Segoe UI", 10);
+  // Loading text
+  painter.setPen(QColor(255, 255, 255, 140));
+  QFont loadingFont("Microsoft YaHei", 11);
+  painter.setFont(loadingFont);
+  const QRectF loadingRect(60.0, splashSize.height() - 55.0, splashSize.width() - 120.0, 20.0);
+  painter.drawText(loadingRect, Qt::AlignLeft | Qt::AlignVCenter,
+                   QString::fromUtf8("\xe6\xad\xa3\xe5\x9c\xa8\xe5\x88\x9d\xe5\xa7\x8b\xe5\x8c\x96\xef\xbc\x8c\xe8\xaf\xb7\xe7\xa8\x8d\xe5\x80\x99..."));  // 正在初始化，请稍候...
+
+  // Copyright
+  painter.setPen(QColor(255, 255, 255, 100));
+  QFont metaFont("Segoe UI", 9);
   painter.setFont(metaFont);
-  const QRectF metaRect(60.0, splashSize.height() - 48.0, splashSize.width() - 120.0, 20.0);
+  const QRectF metaRect(60.0, splashSize.height() - 30.0, splashSize.width() - 120.0, 18.0);
   painter.drawText(metaRect, Qt::AlignLeft | Qt::AlignVCenter,
-                   QObject::tr("Alice Labs - Powered by 3D Slicer under BSD license"));
+                   QString("Powered by 3D Slicer | BSD License"));
 
   painter.end();
 
@@ -121,7 +137,7 @@ int SlicerAppMain(int argc, char* argv[])
 
   qRegisterMetaType<QPixmap>("QPixmap");
   QScopedPointer<SlicerMainWindowType> window;
-  QPixmap splashPixmap = createAliceSplashPixmap();
+  QPixmap splashPixmap = createVisionMagicSplashPixmap();
   app.setProperty("SlicerCustomSplashPixmap", QVariant::fromValue(splashPixmap));
   QScopedPointer<QSplashScreen> splashScreen;
 
