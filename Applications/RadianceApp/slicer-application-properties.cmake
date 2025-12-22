@@ -1,5 +1,5 @@
 set(APPLICATION_NAME
-  VisionMagic
+  "Vision Magic Ecosystem"
   )
 set(APPLICATION_DISPLAY_NAME
   "医学影像三维重建软件（Vision Magic Ecosystem）"

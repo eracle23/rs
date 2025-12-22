@@ -10,6 +10,7 @@ import logging
 import slicer
 from slicer.ScriptedLoadableModule import *
 import qt
+import ctk
 
 
 class VisionMagicConfig(ScriptedLoadableModule):
@@ -28,8 +29,57 @@ class VisionMagicConfig(ScriptedLoadableModule):
         self.parent.acknowledgementText = ""
         self.parent.hidden = True  # 隐藏此模块
         
+        # 尽早配置 DICOM 数据库路径（在 DICOM 模块加载前）
+        self.configureDICOMDatabasePath()
+        
         # 在模块加载后配置
         slicer.app.connect('startupCompleted()', self.onStartupCompleted)
+    
+    
+    def configureDICOMDatabasePath(self):
+        """
+        配置 DICOM 数据库路径到程序目录下，避免用户目录中文路径问题
+        """
+        try:
+            settings = qt.QSettings()
+            schemaVersion = ctk.ctkDICOMDatabase().schemaVersion()
+            settingsKey = f"DatabaseDirectory_{schemaVersion}"
+            
+            # 检查是否已经设置了路径
+            existingPath = settings.value(settingsKey)
+            if existingPath:
+                # 已有设置，检查路径是否有效（无乱码）
+                try:
+                    existingPath.encode('ascii')
+                    # 路径只包含 ASCII 字符，可能是安全的
+                    if os.path.exists(existingPath) or not self._hasNonAsciiInPath(existingPath):
+                        return  # 使用现有设置
+                except UnicodeEncodeError:
+                    pass  # 路径包含非 ASCII 字符，需要重新配置
+            
+            # 使用程序安装目录下的 DICOMDatabase 文件夹
+            appDir = slicer.app.slicerHome
+            dicomDbPath = os.path.join(appDir, "DICOMDatabase")
+            
+            # 确保路径存在
+            if not os.path.exists(dicomDbPath):
+                os.makedirs(dicomDbPath, exist_ok=True)
+            
+            # 保存到设置
+            settings.setValue(settingsKey, dicomDbPath)
+            logging.info(f"VisionMagic: DICOM database path configured to: {dicomDbPath}")
+            
+        except Exception as e:
+            logging.warning(f"VisionMagic: Could not configure DICOM database path: {e}")
+    
+    
+    def _hasNonAsciiInPath(self, path):
+        """检查路径是否包含非 ASCII 字符"""
+        try:
+            path.encode('ascii')
+            return False
+        except UnicodeEncodeError:
+            return True
 
 
     def onStartupCompleted(self):

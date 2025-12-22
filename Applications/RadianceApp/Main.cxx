@@ -35,10 +35,19 @@
 #include <QRectF>
 #include <QVariant>
 #include <QMetaType>
+#include <QTextCodec>
+#include <QDir>
 // Theme/Settings
 #include <QSettings>
 #include <QStyle>
 #include <QStyleFactory>
+
+// Windows UTF-8 console support
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#include <fcntl.h>
+#endif
 
 Q_DECLARE_METATYPE(QPixmap)
 
@@ -118,6 +127,12 @@ QPixmap createVisionMagicSplashPixmap()
 //----------------------------------------------------------------------------
 int SlicerAppMain(int argc, char* argv[])
 {
+  // Windows UTF-8 support: Set console code page and enable UTF-8 for file paths
+#ifdef _WIN32
+  SetConsoleOutputCP(CP_UTF8);
+  SetConsoleCP(CP_UTF8);
+#endif
+
   typedef qRadianceAppMainWindow SlicerMainWindowType;
 
   qSlicerApplicationHelper::preInitializeApplication(argv[0], new qAppStyle);
@@ -131,6 +146,27 @@ int SlicerAppMain(int argc, char* argv[])
   // 设置任务栏和系统显示的应用程序名称
   QCoreApplication::setApplicationName(QString::fromUtf8("VisionMagic"));
   QGuiApplication::setApplicationDisplayName(QString::fromUtf8("医学影像三维重建软件"));
+
+  // 配置 DICOM 数据库路径到程序目录下，避免用户目录中文路径导致的编码问题
+  {
+    QSettings settings;
+    // DICOM schema 版本通常为 "0.9.3" 之类，这里使用通配符匹配常见版本
+    QStringList schemaVersions = {"0.9.3", "0.9.2", "0.9.1", "0.9.0"};
+    QString appDir = QCoreApplication::applicationDirPath();
+    QString dicomDbPath = appDir + "/DICOMDatabase";
+    
+    // 确保目录存在
+    QDir().mkpath(dicomDbPath);
+    
+    for (const QString& version : schemaVersions)
+    {
+      QString settingsKey = QString("DatabaseDirectory_%1").arg(version);
+      if (settings.value(settingsKey).toString().isEmpty())
+      {
+        settings.setValue(settingsKey, dicomDbPath);
+      }
+    }
+  }
 
   // 默认配置通过资源文件 DefaultSettings.ini 提供（Styles/Style、Modules/HomeModule）。
   // 此处不额外覆写用户偏好，保持简洁设计。

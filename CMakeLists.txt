@@ -45,18 +45,18 @@ set(Slicer_APPLICATIONS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Applications)
 set(Slicer_MAIN_PROJECT "RadianceApp")
 
 # Set organization
-set(Slicer_ORGANIZATION_DOMAIN "alicelabs.com")
-set(Slicer_ORGANIZATION_NAME   "Alice Labs")
+set(Slicer_ORGANIZATION_DOMAIN "Vision Magic Ecosystem.com" CACHE STRING "Organization domain" FORCE)
+set(Slicer_ORGANIZATION_NAME   "Vision Magic Ecosystem" CACHE STRING "Organization name" FORCE)
 
 # Default home and favorite modules
-set(SlicerApp_APPLICATION_NAME "Alice")
-set(SlicerApp_APPLICATION_DISPLAY_NAME "Alice Studio")
-set(Slicer_DISCLAIMER_AT_STARTUP "Alice Studio is intended for research use only and is not cleared for diagnostic use.")
-set(Slicer_EXTENSIONS_DIRBASENAME "AliceExtensions" CACHE STRING "Extensions directory name")
+set(SlicerApp_APPLICATION_NAME "Vision Magic Ecosystem" CACHE STRING "Application name" FORCE)
+set(SlicerApp_APPLICATION_DISPLAY_NAME "Vision Magic Ecosystem" CACHE STRING "Application display name" FORCE)
+set(Slicer_DISCLAIMER_AT_STARTUP "Thank you for using %1!<br><br>This software is intended for research use only and is not cleared for diagnostic use." CACHE STRING "Disclaimer text" FORCE)
+set(Slicer_EXTENSIONS_DIRBASENAME "VisionMagicExtensions" CACHE STRING "Extensions directory name" FORCE)
 if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
   message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")
 endif()
-set(Slicer_DEFAULT_HOME_MODULE "DICOM" CACHE STRING "Default home module" FORCE)
+set(Slicer_DEFAULT_HOME_MODULE "Volumes" CACHE STRING "Default home module" FORCE)
 # 常用模块列表：DICOM, Volumes, VolumeRendering, SegmentEditor, Transforms, Markups, Models, Elastix
 set(Slicer_DEFAULT_FAVORITE_MODULES "DICOM, Volumes, VolumeRendering, SegmentEditor, Transforms, Markups, Models, Elastix")
 
