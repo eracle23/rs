@@ -124,7 +124,8 @@ int SlicerAppMain(int argc, char* argv[])
 
   if (!window.isNull())
     {
-    QString windowTitle = QString("%1 %2").arg(app.applicationName()).arg(app.applicationVersion());
+    // 固定显示软件名称：医学影像三维重建软件（Vision Magic Ecosystem）
+    QString windowTitle = QString::fromUtf8("医学影像三维重建软件（Vision Magic Ecosystem）");
     window->setWindowTitle(windowTitle);
     }
 
