@@ -1,6 +1,6 @@
-Alice Studio
+医学影像三维重建软件
 
-Copyright (c) Alice Labs
+Copyright (c) 医学影像三维重建软件开发团队
 
 This application is derived from the 3D Slicer platform. The full 3D Slicer
 Contribution and Software License Agreement is included below.

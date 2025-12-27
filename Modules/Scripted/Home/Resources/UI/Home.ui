@@ -29,7 +29,7 @@
    <item>
     <widget class="QLabel" name="titleLabel">
      <property name="text">
-      <string>Welcome to Alice Studio</string>
+      <string>欢迎使用医学影像三维重建软件</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignLeft|Qt::AlignTop</set>
@@ -42,7 +42,7 @@
    <item>
     <widget class="QLabel" name="taglineLabel">
      <property name="text">
-      <string>Select a workflow to get started or pick up where you left off.</string>
+      <string>选择一个工作流开始，或继续之前的工作。</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -70,7 +70,7 @@
       <item row="0" column="0" colspan="2">
        <widget class="QLabel" name="quickActionsLabel">
         <property name="text">
-         <string>Quick actions</string>
+         <string>快捷操作</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -80,40 +80,40 @@
       <item row="1" column="0">
        <widget class="QPushButton" name="openDataButton">
         <property name="text">
-         <string>Open data...</string>
+         <string>打开数据...</string>
         </property>
         <property name="toolTip">
-         <string>Browse and load image volumes or scene files.</string>
+         <string>浏览并加载影像数据或场景文件。</string>
         </property>
        </widget>
       </item>
       <item row="1" column="1">
        <widget class="QPushButton" name="loadDicomButton">
         <property name="text">
-         <string>Import DICOM...</string>
+         <string>导入 DICOM...</string>
         </property>
         <property name="toolTip">
-         <string>Open the DICOM browser to import studies.</string>
+         <string>打开 DICOM 浏览器导入检查数据。</string>
         </property>
        </widget>
       </item>
       <item row="2" column="0">
        <widget class="QPushButton" name="segmentEditorButton">
         <property name="text">
-         <string>Launch segmentation</string>
+         <string>启动分割编辑器</string>
         </property>
         <property name="toolTip">
-         <string>Jump directly into the Segment Editor module.</string>
+         <string>直接进入分割编辑器模块。</string>
         </property>
        </widget>
       </item>
       <item row="2" column="1">
        <widget class="QPushButton" name="volumeRenderingButton">
         <property name="text">
-         <string>Volume rendering</string>
+         <string>体绘制</string>
         </property>
         <property name="toolTip">
-         <string>Navigate to volume rendering presets and controls.</string>
+         <string>进入体绘制预设和控制界面。</string>
         </property>
        </widget>
       </item>
@@ -135,7 +135,7 @@
       <item>
        <widget class="QLabel" name="workflowLabel">
         <property name="text">
-         <string>Guided workflows</string>
+         <string>引导式工作流</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -145,7 +145,7 @@
       <item>
        <widget class="QLabel" name="workflowHintLabel">
         <property name="text">
-         <string>Use guidelets to present streamlined task-focused panels.</string>
+         <string>使用引导面板进行简化的任务操作。</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -158,10 +158,10 @@
       <item>
        <widget class="QPushButton" name="launchGuideletButton">
         <property name="text">
-         <string>Launch example guidelet</string>
+         <string>启动示例引导</string>
         </property>
         <property name="toolTip">
-         <string>Open the scripted guidelet placeholder module.</string>
+         <string>打开脚本式引导占位模块。</string>
         </property>
         <property name="enabled">
          <bool>false</bool>
@@ -186,7 +186,7 @@
       <item>
        <widget class="QLabel" name="layoutLabel">
         <property name="text">
-         <string>Workspace layouts</string>
+         <string>工作区布局</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -201,10 +201,10 @@
         <item>
          <widget class="QPushButton" name="workspaceLayoutButton">
           <property name="text">
-           <string>Alice workspace</string>
+           <string>默认工作区</string>
           </property>
           <property name="toolTip">
-           <string>3D overview with paired axial and sagittal slices.</string>
+           <string>三维视图配合轴位和矢状位切片。</string>
           </property>
           <property name="checkable">
            <bool>true</bool>
@@ -214,10 +214,10 @@
         <item>
          <widget class="QPushButton" name="fourUpLayoutButton">
           <property name="text">
-           <string>Classic four-up</string>
+           <string>经典四视图</string>
           </property>
           <property name="toolTip">
-           <string>Restore the standard 2D/3D investigative layout.</string>
+           <string>恢复标准的2D/3D分析布局。</string>
           </property>
           <property name="checkable">
            <bool>true</bool>
@@ -244,7 +244,7 @@
       <item>
        <widget class="QLabel" name="resourcesLabel">
         <property name="text">
-         <string>Resources</string>
+         <string>资源</string>
         </property>
         <property name="alignment">
          <set>Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -254,7 +254,7 @@
       <item>
        <widget class="QLabel" name="resourcesLinksLabel">
         <property name="text">
-         <string>&lt;a href=&quot;https://alicelabs.com/docs&quot;&gt;Documentation&lt;/a&gt; · &lt;a href=&quot;https://alicelabs.com/changelog&quot;&gt;Release notes&lt;/a&gt;</string>
+         <string>&lt;a href=&quot;https://alicelabs.com/docs&quot;&gt;文档&lt;/a&gt; · &lt;a href=&quot;https://alicelabs.com/changelog&quot;&gt;版本说明&lt;/a&gt;</string>
         </property>
         <property name="textFormat">
          <enum>Qt::RichText</enum>

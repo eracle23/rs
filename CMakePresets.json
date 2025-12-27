@@ -19,7 +19,7 @@
         "Slicer_BUILD_QTSCRIPTEDMODULES": "ON",
         "Slicer_BUILD_EXTENSIONMANAGER_SUPPORT": "ON",
         "Slicer_USE_PYTHONQT": "ON",
-        "Slicer_BUILD_WIN32_CONSOLE": "ON",
+        "Slicer_BUILD_WIN32_CONSOLE": "OFF",
         "CMAKE_NINJA_FORCE_RESPONSE_FILE": "ON",
         "CMAKE_OBJECT_PATH_MAX": "128",
         "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "ProgramDatabase",

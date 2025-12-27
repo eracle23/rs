@@ -26,13 +26,13 @@ class Home(ScriptedLoadableModule):
 
     def __init__(self, parent: Optional[qt.QWidget]):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "Home"
+        self.parent.title = "首页"
         self.parent.categories = [""]
         self.parent.dependencies = []
-        self.parent.contributors = ["Experience Engineering (Alice Labs)"]
-        self.parent.helpText = """Alice Studio home surfaces common workflows, layouts, and learning resources in one place."""
+        self.parent.contributors = ["医学影像三维重建软件开发团队"]
+        self.parent.helpText = """医学影像三维重建软件首页，提供常用工作流、布局和学习资源。"""
         self.parent.helpText += self.getDefaultModuleDocumentationLink()
-        self.parent.acknowledgementText = """Alice Studio builds on 3D Slicer (BSD license)."""
+        self.parent.acknowledgementText = """本软件基于 3D Slicer 开发（BSD 许可证）。"""
 
 
 class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
@@ -137,14 +137,14 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def initializeNavigationToolBar(self):
         """Create toolbar hosting shortcut actions for primary workflows"""
-        navigationToolBar = self.insertToolBar("MainToolBar", "NavigationToolBar", title="Navigation")
+        navigationToolBar = self.insertToolBar("MainToolBar", "NavigationToolBar", title="导航")
         navigationToolBar.setToolButtonStyle(qt.Qt.ToolButtonTextUnderIcon)
         navigationToolBar.setIconSize(qt.QSize(36, 36))
         actions = [
-            ("Home", self.toolbarIcon("home"), lambda: slicer.util.selectModule("Home")),
-            ("Data", self.toolbarIcon("data"), lambda: slicer.util.selectModule("Data")),
-            ("Segment", self.toolbarIcon("segment"), lambda: slicer.util.selectModule("SegmentEditor")),
-            ("Render", self.toolbarIcon("render"), lambda: slicer.util.selectModule("VolumeRendering")),
+            ("首页", self.toolbarIcon("home"), lambda: slicer.util.selectModule("Home")),
+            ("数据", self.toolbarIcon("data"), lambda: slicer.util.selectModule("Data")),
+            ("分割", self.toolbarIcon("segment"), lambda: slicer.util.selectModule("SegmentEditor")),
+            ("渲染", self.toolbarIcon("render"), lambda: slicer.util.selectModule("VolumeRendering")),
         ]
 
         for text, icon, callback in actions:
@@ -217,12 +217,12 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
     def initializeSettingsToolBar(self):
         """Create toolbar and dialog for app settings"""
-        settingsToolBar = self.insertToolBar("MainToolBar", "SettingsToolBar", title="Settings")
+        settingsToolBar = self.insertToolBar("MainToolBar", "SettingsToolBar", title="设置")
         settingsToolBar.setToolButtonStyle(qt.Qt.ToolButtonTextUnderIcon)
         settingsToolBar.setIconSize(qt.QSize(36, 36))
 
-        self.settingsAction = settingsToolBar.addAction(self.toolbarIcon("settings"), self.tr("Settings"))
-        self.settingsAction.setToolTip(self.tr("Open Radiance preferences"))
+        self.settingsAction = settingsToolBar.addAction(self.toolbarIcon("settings"), "设置")
+        self.settingsAction.setToolTip("打开软件设置")
 
         # Settings dialog
         self.settingsDialog = slicer.util.loadUI(self.resourcePath("UI/Settings.ui"))

@@ -340,7 +340,7 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   //----------------------------------------------------------------------------
   QAction* helpAboutSlicerAppAction = new QAction(mainWindow);
   helpAboutSlicerAppAction->setObjectName("HelpAboutRadianceAppAction");
-  helpAboutSlicerAppAction->setText(qRadianceAppMainWindow::tr("About %1").arg(qSlicerApplication::application()->applicationName()));
+  helpAboutSlicerAppAction->setText(QString::fromUtf8("关于 %1").arg(qSlicerApplication::application()->applicationName()));
   QObject::connect(helpAboutSlicerAppAction, &QAction::triggered,
                    q, &qRadianceAppMainWindow::on_HelpAboutRadianceAppAction_triggered);
 
@@ -375,11 +375,11 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
 
   // Add Help Menu Action
   this->HelpMenu->clear();
-  this->HelpMenu->setTitle(qRadianceAppMainWindow::tr("Support"));
+  this->HelpMenu->setTitle(QString::fromUtf8("帮助"));
 
   QAction* helpSupportPortalAction = new QAction(mainWindow);
   helpSupportPortalAction->setObjectName("HelpSupportPortalAction");
-  helpSupportPortalAction->setText(qRadianceAppMainWindow::tr("Support Portal"));
+  helpSupportPortalAction->setText(QString::fromUtf8("技术支持"));
   QObject::connect(helpSupportPortalAction, &QAction::triggered,
                    mainWindow, []()
                    {
@@ -392,7 +392,7 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
 
   if (this->FileMenu)
     {
-    this->FileMenu->menuAction()->setText(qRadianceAppMainWindow::tr("Workspace"));
+    this->FileMenu->menuAction()->setText(QString::fromUtf8("工作区"));
     }
   // 隐藏 Edit 菜单
   if (this->EditMenu)
@@ -436,12 +436,12 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   brandLayout->setContentsMargins(12, 8, 12, 8);
   brandLayout->setSpacing(10);
 
-  QLabel* brandLabel = new QLabel(qRadianceAppMainWindow::tr("Alice Studio"));
+  QLabel* brandLabel = new QLabel(QString::fromUtf8("医学影像三维重建软件"));
   brandLabel->setObjectName("AliceBrandLabel");
   brandLabel->setAlignment(Qt::AlignVCenter | Qt::AlignLeft);
   brandLabel->setStyleSheet("font-size: 18px; font-weight: 700; color: palette(windowText);");
 
-  QLabel* workflowBadge = new QLabel(qRadianceAppMainWindow::tr("Workflow"));
+  QLabel* workflowBadge = new QLabel(QString::fromUtf8("工作流"));
   workflowBadge->setObjectName("AliceWorkflowBadge");
   workflowBadge->setAlignment(Qt::AlignCenter);
   workflowBadge->setStyleSheet("padding: 2px 12px; border-radius: 12px; background: palette(highlight); color: palette(highlightedText); font-size: 11px; font-weight: 600;");
@@ -452,11 +452,11 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   brandHeader->setStyleSheet("#AliceTitleBar { background: palette(window); border-bottom: 1px solid palette(mid); }");
 
   this->PanelDockWidget->setTitleBarWidget(brandHeader);
-  this->PanelDockWidget->setWindowTitle(qRadianceAppMainWindow::tr("Workflow"));
+  this->PanelDockWidget->setWindowTitle(QString::fromUtf8("工作流"));
 
   if (this->MainToolBar)
     {
-    this->MainToolBar->setWindowTitle(qRadianceAppMainWindow::tr("Data I/O"));
+    this->MainToolBar->setWindowTitle(QString::fromUtf8("数据导入导出"));
     }
 
   this->applyToolbarBranding();
@@ -533,7 +533,7 @@ void qRadianceAppMainWindow::on_HelpAboutRadianceAppAction_triggered()
   brandFont.setPointSize(28);
   brandFont.setBold(true);
   painter.setFont(brandFont);
-  painter.drawText(badgeRect, Qt::AlignCenter, tr("Alice Studio"));
+  painter.drawText(badgeRect, Qt::AlignCenter, QString::fromUtf8("医学影像三维重建软件"));
   painter.end();
 
   about.setLogo(brandPixmap);
@@ -628,9 +628,21 @@ void qRadianceAppMainWindow::applyShellTweaks()
   hideDockWidgetByName(this, "ErrorLogDockWidget");
 
   // ========== 工具栏按钮隐藏 ==========
-  // 只隐藏扩展管理器按钮
+  // 隐藏扩展管理器按钮
   hideActionByName(this, "ViewExtensionsManagerAction");
   hideActionByName(this, "ExtensionsManagerAction");
+  
+  // 隐藏 Python 控制台工具栏按钮（在 DialogToolBar 上）
+  if (QToolBar* dialogToolBar = this->findChild<QToolBar*>("DialogToolBar"))
+    {
+    for (QAction* action : dialogToolBar->actions())
+      {
+      // 隐藏所有 DialogToolBar 上的按钮（包括扩展和Python控制台）
+      hideAndDisableAction(action);
+      }
+    // 隐藏整个工具栏
+    dialogToolBar->hide();
+    }
 
   // 首页左侧栏显示：首次显示窗口时切换到 Volumes，并确保左侧面板可见
   QObject::connect(this, &qSlicerMainWindow::initialWindowShown, this, [this]() {
@@ -647,9 +659,8 @@ void qRadianceAppMainWindow::applyShellTweaks()
     // ========== 模块下拉菜单过滤：延迟执行以确保菜单已构建 ==========
     QTimer::singleShot(500, this, [this]() {
       QStringList allowedModules;
-      allowedModules << "DICOM" << "Volumes" << "VolumeRendering"
-                     << "SegmentEditor" << "Transforms" << "Markups"
-                     << "Models" << "Elastix";
+      allowedModules << "DICOM" << "Volumes" << "SegmentEditor"
+                     << "Markups" << "Models";
 
       if (auto selector = this->moduleSelector())
         {

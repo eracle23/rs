@@ -49,9 +49,9 @@ set(Slicer_ORGANIZATION_DOMAIN "Vision Magic Ecosystem.com" CACHE STRING "Organi
 set(Slicer_ORGANIZATION_NAME   "Vision Magic Ecosystem" CACHE STRING "Organization name" FORCE)
 
 # Default home and favorite modules
-set(SlicerApp_APPLICATION_NAME "Vision Magic Ecosystem" CACHE STRING "Application name" FORCE)
-set(SlicerApp_APPLICATION_DISPLAY_NAME "Vision Magic Ecosystem" CACHE STRING "Application display name" FORCE)
-set(Slicer_DISCLAIMER_AT_STARTUP "感谢您使用 %1！<br><br>本软件仅供研究使用，未获得诊断用途的许可。" CACHE STRING "Disclaimer text" FORCE)
+set(SlicerApp_APPLICATION_NAME "医学影像三维重建软件" CACHE STRING "Application name" FORCE)
+set(SlicerApp_APPLICATION_DISPLAY_NAME "医学影像三维重建软件" CACHE STRING "Application display name" FORCE)
+set(Slicer_DISCLAIMER_AT_STARTUP "感谢您使用 %1！<br><br>本软件仅供研究使用，不用于临床诊断。" CACHE STRING "Disclaimer text" FORCE)
 set(Slicer_EXTENSIONS_DIRBASENAME "VisionMagicExtensions" CACHE STRING "Extensions directory name" FORCE)
 if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
   message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")
@@ -180,8 +180,9 @@ option(Slicer_BUILD_APPLICATIONUPDATE_SUPPORT   "Build application update suppor
 option(Slicer_BUILD_DOCUMENTATION               "Build documentation (Doxygen, sphinx, ...)"          OFF)
 if(WIN32)
   option(Slicer_BUILD_WIN32_CONSOLE_LAUNCHER    "Build ${PROJECT_NAME} launcher executable as a console app on windows (displays console at application start)" OFF)
-  option(Slicer_BUILD_WIN32_CONSOLE             "Build application executable as a console app (allows capturing and piping console output)" ON)
+  option(Slicer_BUILD_WIN32_CONSOLE             "Build application executable as a console app (allows capturing and piping console output)" OFF)
   set(Slicer_BUILD_WIN32_CONSOLE_LAUNCHER OFF CACHE BOOL "Hide console window for end-user launcher" FORCE)
+  set(Slicer_BUILD_WIN32_CONSOLE OFF CACHE BOOL "Hide console window for application" FORCE)
 endif()
 
 option(Slicer_BUILD_DICOM_SUPPORT               "Build application with DICOM support"                ON)
