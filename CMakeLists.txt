@@ -38,7 +38,7 @@ endif()
 set(CMAKE_MODULE_PATH ${slicersources_SOURCE_DIR}/CMake ${CMAKE_MODULE_PATH})
 include(SlicerInitializeOSXVariables)
 
-project(AliceSuite)
+project(VisionMagicEcosystem)
 
 # Configure Application
 set(Slicer_APPLICATIONS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Applications)

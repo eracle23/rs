@@ -454,6 +454,12 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   this->PanelDockWidget->setTitleBarWidget(brandHeader);
   this->PanelDockWidget->setWindowTitle(QString::fromUtf8("工作流"));
 
+  // 隐藏模块面板中的帮助及致谢栏
+  if (this->ModulePanel)
+    {
+    this->ModulePanel->setHelpAndAcknowledgmentVisible(false);
+    }
+
   if (this->MainToolBar)
     {
     this->MainToolBar->setWindowTitle(QString::fromUtf8("数据导入导出"));

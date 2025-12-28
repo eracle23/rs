@@ -107,9 +107,9 @@ slicerMacroBuildApplication(
   ${extra_args}
   )
 
-# Ensure the GUI launcher with patched icon (AliceW.exe) is always generated
+# Ensure the GUI launcher with patched icon (VisionMagicEcosystemW.exe) is always generated
 # before we attempt to install/package it. Otherwise CPack may fail with
-# “file INSTALL cannot find …/CMakeFiles/AliceW.exe”.
+# "file INSTALL cannot find …/CMakeFiles/VisionMagicEcosystemW.exe".
 if(WIN32)
   set(_launcher_artifacts_target "${SLICERAPP_APPLICATION_NAME}LauncherArtifacts")
   if(TARGET ${_launcher_artifacts_target})
