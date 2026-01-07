@@ -142,6 +142,7 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         navigationToolBar.setIconSize(qt.QSize(36, 36))
         actions = [
             ("首页", self.toolbarIcon("home"), lambda: slicer.util.selectModule("Home")),
+            ("DICOM", self.toolbarIcon("dicom"), lambda: slicer.util.selectModule("DICOM")),
             ("数据", self.toolbarIcon("data"), lambda: slicer.util.selectModule("Data")),
             ("分割", self.toolbarIcon("segment"), lambda: slicer.util.selectModule("SegmentEditor")),
             ("渲染", self.toolbarIcon("render"), lambda: slicer.util.selectModule("VolumeRendering")),
@@ -248,6 +249,7 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
     def _load_toolbar_icons(self) -> dict[str, qt.QIcon]:
         files = {
             "home": "toolbar_home.svg",
+            "dicom": "toolbar_dicom.svg",
             "data": "toolbar_data.svg",
             "segment": "toolbar_segment.svg",
             "render": "toolbar_render.svg",

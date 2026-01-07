@@ -40,6 +40,9 @@ public slots:
   void setHomeModuleCurrent() override;
   void on_FavoriteModulesChanged() override;
 
+protected slots:
+  void onModuleLoaded(const QString& moduleName) override;
+
 protected:
   qRadianceAppMainWindow(qRadianceAppMainWindowPrivate* pimpl, QWidget* parent);
 

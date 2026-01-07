@@ -19,6 +19,7 @@
 #include "qRadianceAppMainWindow.h"
 #include "qRadianceAppMainWindow_p.h"
 #include "BrandingPreferences.h"
+#include "vtkSlicerConfigure.h" // For Slicer_DEFAULT_FAVORITE_MODULES
 
 // Qt includes
 #include <QAction>
@@ -27,6 +28,8 @@
 #include <QColor>
 #include <QDesktopServices>
 #include <QDesktopWidget>
+#include <QGuiApplication>
+#include <QScreen>
 #include <QFont>
 #include <QHash>
 #include <QHBoxLayout>
@@ -48,6 +51,7 @@
 #include <QStyleFactory>
 #include <QSettings>
 #include <QFile>
+#include <QTextStream>
 #include <QTextBrowser>
 #include <QTextEdit>
 #include <QComboBox>
@@ -316,6 +320,26 @@ void qRadianceAppMainWindowPrivate::init()
   QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #endif
   Q_Q(qRadianceAppMainWindow);
+  
+  // 确保 FavoriteModules 有默认值，否则模块加载时不会添加到工具栏
+  QSettings settings;
+  QStringList favModules = settings.value("Modules/FavoriteModules").toStringList();
+  if (favModules.isEmpty())
+    {
+    // 使用编译时默认值
+    QString defaultFavorites = QString(Slicer_DEFAULT_FAVORITE_MODULES);
+    favModules = defaultFavorites.split(",", Qt::SkipEmptyParts);
+    for (QString& s : favModules)
+      {
+      s = s.trimmed();
+      }
+    settings.setValue("Modules/FavoriteModules", favModules);
+    }
+  
+  // 关键：在调用基类init()之前，将FavoriteModules成员变量初始化
+  // 这样在模块加载时（onModuleLoaded回调），FavoriteModules列表已经有值
+  this->FavoriteModules = favModules;
+  
   this->Superclass::init();
 
   // 清空任何遗留的全局样式与调色板，确保完全回到 Slicer 默认主题
@@ -327,6 +351,11 @@ void qRadianceAppMainWindowPrivate::init()
       app->setPalette(style->standardPalette());
       }
     }
+  
+  // 在启动完成后刷新 FavoriteModules 工具栏
+  // 因为某些模块（如 DICOM）可能在信号连接前就加载了
+  QObject::connect(qSlicerApplication::application(), &qSlicerApplication::startupCompleted,
+                   q, &qRadianceAppMainWindow::on_FavoriteModulesChanged);
 }
 
 //-----------------------------------------------------------------------------
@@ -463,6 +492,12 @@ void qRadianceAppMainWindowPrivate::setupUi(QMainWindow * mainWindow)
   if (this->MainToolBar)
     {
     this->MainToolBar->setWindowTitle(QString::fromUtf8("数据导入导出"));
+    }
+  
+  // 显示 DICOM 按钮（UI 文件中默认隐藏）
+  if (this->LoadDICOMAction)
+    {
+    this->LoadDICOMAction->setVisible(true);
     }
 
   this->applyToolbarBranding();
@@ -650,11 +685,42 @@ void qRadianceAppMainWindow::applyShellTweaks()
     dialogToolBar->hide();
     }
 
-  // 首页左侧栏显示：首次显示窗口时切换到 Volumes，并确保左侧面板可见
+  // 首页左侧栏显示：首次显示窗口时切换到 DICOM，并确保左侧面板可见
   QObject::connect(this, &qSlicerMainWindow::initialWindowShown, this, [this]() {
+    // 初始化收藏模块（如果 QSettings 中没有设置，使用默认值）
+    QStringList favoriteModules = QSettings().value("Modules/FavoriteModules").toStringList();
+    if (favoriteModules.isEmpty())
+      {
+      QString defaultFavorites = QString(Slicer_DEFAULT_FAVORITE_MODULES);
+      favoriteModules = defaultFavorites.split(",", Qt::SkipEmptyParts);
+      for (QString& s : favoriteModules)
+        {
+        s = s.trimmed();
+        }
+      QSettings().setValue("Modules/FavoriteModules", favoriteModules);
+      // 触发收藏模块工具栏刷新
+      this->on_FavoriteModulesChanged();
+      }
+    
     if (auto selector = this->moduleSelector())
       {
-      selector->selectModule("Volumes");
+      // 连接一次性信号，在模块切换完成后居中窗口
+      QMetaObject::Connection* conn = new QMetaObject::Connection();
+      *conn = QObject::connect(selector, &qSlicerModuleSelectorToolBar::moduleSelected, this, [this, conn]() {
+        QObject::disconnect(*conn);
+        delete conn;
+        // 延迟居中，确保布局稳定
+        QTimer::singleShot(100, this, [this]() {
+          if (QScreen* screen = QGuiApplication::primaryScreen())
+            {
+            QRect screenGeometry = screen->availableGeometry();
+            int x = (screenGeometry.width() - this->width()) / 2;
+            int y = (screenGeometry.height() - this->height()) / 2;
+            this->move(x, y);
+            }
+          });
+        });
+      selector->selectModule("DICOM");
       }
     if (auto panel = this->findChild<QDockWidget*>("PanelDockWidget"))
       {
@@ -1137,6 +1203,47 @@ void qRadianceAppMainWindow::setHomeModuleCurrent()
 }
 
 //-----------------------------------------------------------------------------
+void qRadianceAppMainWindow::onModuleLoaded(const QString& moduleName)
+{
+  Q_D(qRadianceAppMainWindow);
+  
+  // 检查是否是收藏模块，如果是且没有图标，先设置图标
+  if (d->FavoriteModules.contains(moduleName))
+  {
+    qSlicerModuleManager* moduleManager = qSlicerApplication::application()->moduleManager();
+    if (moduleManager)
+    {
+      qSlicerAbstractCoreModule* coreModule = moduleManager->module(moduleName);
+      qSlicerAbstractModule* module = qobject_cast<qSlicerAbstractModule*>(coreModule);
+      if (module)
+      {
+        QAction* action = module->action();
+        if (action && action->icon().isNull())
+        {
+          const QColor accentColor = d->brandAccentColor();
+          QIcon brandedIcon = d->brandModuleByName(moduleName, accentColor);
+          if (!brandedIcon.isNull())
+          {
+            action->setIcon(brandedIcon);
+          }
+          else if (!module->icon().isNull())
+          {
+            action->setIcon(d->createModuleIcon(module->icon(), accentColor));
+          }
+          else
+          {
+            action->setIcon(d->createModuleFinderIcon(accentColor));
+          }
+        }
+      }
+    }
+  }
+  
+  // 调用基类方法
+  this->Superclass::onModuleLoaded(moduleName);
+}
+
+//-----------------------------------------------------------------------------
 void qRadianceAppMainWindow::on_FavoriteModulesChanged()
 {
   Q_D(qRadianceAppMainWindow);
@@ -1144,12 +1251,23 @@ void qRadianceAppMainWindow::on_FavoriteModulesChanged()
   // 在调用基类之前，先给所有收藏模块的 action 设置图标
   // 因为基类的 addFavoriteModule 会跳过没有图标的模块
   QStringList favoriteModules = QSettings().value("Modules/FavoriteModules").toStringList();
+  
+  // 如果 FavoriteModules 为空，使用编译时默认值并写入 QSettings
+  if (favoriteModules.isEmpty())
+    {
+    QString defaultFavorites = QString(Slicer_DEFAULT_FAVORITE_MODULES);
+    favoriteModules = defaultFavorites.split(",", Qt::SkipEmptyParts);
+    for (QString& s : favoriteModules)
+      {
+      s = s.trimmed();
+      }
+    QSettings().setValue("Modules/FavoriteModules", favoriteModules);
+    }
+  
   const QColor accentColor = d->brandAccentColor();
-  
-  // 创建一个默认占位图标
   QIcon defaultIcon = d->createModuleFinderIcon(accentColor);
-  
   qSlicerModuleManager* moduleManager = qSlicerApplication::application()->moduleManager();
+  
   if (moduleManager)
   {
     for (const QString& moduleName : favoriteModules)
@@ -1161,7 +1279,6 @@ void qRadianceAppMainWindow::on_FavoriteModulesChanged()
         QAction* action = module->action();
         if (action && action->icon().isNull())
         {
-          // 尝试设置品牌图标
           QIcon brandedIcon = d->brandModuleByName(moduleName, accentColor);
           if (!brandedIcon.isNull())
           {
@@ -1169,12 +1286,10 @@ void qRadianceAppMainWindow::on_FavoriteModulesChanged()
           }
           else if (!module->icon().isNull())
           {
-            // 使用模块自己的图标
             action->setIcon(d->createModuleIcon(module->icon(), accentColor));
           }
           else
           {
-            // 使用默认占位图标
             action->setIcon(defaultIcon);
           }
         }
@@ -1182,8 +1297,88 @@ void qRadianceAppMainWindow::on_FavoriteModulesChanged()
     }
   }
   
-  // 现在调用基类实现，构建收藏模块工具栏
+  // 调用基类实现
   this->Superclass::on_FavoriteModulesChanged();
+  
+  // 检查并手动添加缺失的收藏模块（如 DICOM）
+  // 因为基类会跳过没有图标的模块
+  if (d->ModuleToolBar && moduleManager)
+  {
+    QSet<QString> existingModules;
+    for (QAction* action : d->ModuleToolBar->actions())
+    {
+      if (action && !action->isSeparator())
+      {
+        existingModules.insert(action->data().toString());
+      }
+    }
+    
+    // 调试：写入文件
+    QFile debugFile("D:/work/RS/dicom_debug.txt");
+    if (debugFile.open(QIODevice::WriteOnly))
+    {
+      QTextStream ts(&debugFile);
+      ts << "=== on_FavoriteModulesChanged ===\n";
+      ts << "existingModules: " << existingModules.values().join(", ") << "\n";
+      ts << "favoriteModules: " << favoriteModules.join(", ") << "\n";
+      debugFile.close();
+    }
+    
+    for (const QString& moduleName : favoriteModules)
+    {
+      if (existingModules.contains(moduleName))
+      {
+        continue; // 已存在
+      }
+      
+      qSlicerAbstractCoreModule* coreModule = moduleManager->module(moduleName);
+      qSlicerAbstractModule* module = qobject_cast<qSlicerAbstractModule*>(coreModule);
+      
+      // 调试
+      if (debugFile.open(QIODevice::WriteOnly | QIODevice::Append))
+      {
+        QTextStream ts(&debugFile);
+        ts << "Module " << moduleName << ": coreModule=" << (coreModule != nullptr) << ", module=" << (module != nullptr) << "\n";
+        debugFile.close();
+      }
+      
+      if (!module)
+      {
+        continue;
+      }
+      
+      QAction* action = module->action();
+      if (!action)
+      {
+        continue;
+      }
+      
+      // 确保有图标
+      if (action->icon().isNull())
+      {
+        QIcon brandedIcon = d->brandModuleByName(moduleName, accentColor);
+        if (!brandedIcon.isNull())
+        {
+          action->setIcon(brandedIcon);
+        }
+        else
+        {
+          action->setIcon(defaultIcon);
+        }
+      }
+      
+      // 手动添加到工具栏
+      d->ModuleToolBar->addAction(action);
+      
+      // 调试
+      if (debugFile.open(QIODevice::WriteOnly | QIODevice::Append))
+      {
+        QTextStream ts(&debugFile);
+        ts << "  -> Added " << moduleName << " to toolbar\n";
+        debugFile.close();
+      }
+    }
+  }
   
   // 再次确保工具栏上的按钮使用品牌图标
   if (d->ModuleToolBar)

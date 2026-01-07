@@ -10,11 +10,32 @@ Slicer_build_configure.log
 Tools/tmp_*
 Tools/Invoke-Dump.txt
 CMakeLists.txt.bak
- 
+
 # Build and package logs
 *.log
 
 # Backup files
 *.bak
 *.bak-*
+
+# Build directories
 rs-build/
+rs-install/
+
+# Package outputs
+VisionMagicEcosystem.zip
+*.exe
+
+# Debug and test files
+*.txt
+!README.txt
+!LICENSE.txt
+!**/ColorFiles/*.txt
+
+# Local scripts (not for version control)
+check-build.ps1
+copy-to-install.ps1
+test_settings.py
+
+# Qt translation compiled files (source .ts files are tracked)
+*.qm

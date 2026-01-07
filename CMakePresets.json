@@ -168,6 +168,37 @@
       "jobs": 0
     },
     {
+      "name": "vs17-dev-release",
+      "displayName": "VS2022 build (Release)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Release",
+      "jobs": 0
+    },
+    {
+      "name": "cfg-inner-release",
+      "displayName": "Configure inner Slicer (VS2022, Release)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Release",
+      "targets": ["Slicer-configure"],
+      "jobs": 0
+    },
+    {
+      "name": "build-inner-release",
+      "displayName": "Build inner Slicer (VS2022, Release)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Release",
+      "targets": ["Slicer-build"],
+      "jobs": 0
+    },
+    {
+      "name": "install-inner-release",
+      "displayName": "Install inner Slicer (VS2022, Release)",
+      "configurePreset": "vs17-dev",
+      "configuration": "Release",
+      "targets": ["Slicer-install"],
+      "jobs": 0
+    },
+    {
       "name": "rs-dev-cfg-inner",
       "displayName": "RS Dev: Configure inner Slicer",
       "configurePreset": "rs-dev",

@@ -7,6 +7,14 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# MSVC UTF-8 编码支持
+if(MSVC)
+  add_compile_options(/utf-8)
+  # 传递给 SuperBuild 外部项目
+  set(ADDITIONAL_CXX_FLAGS "/utf-8" CACHE STRING "Additional CXX flags for SuperBuild" FORCE)
+  set(ADDITIONAL_C_FLAGS "/utf-8" CACHE STRING "Additional C flags for SuperBuild" FORCE)
+endif()
+
 set (EP_GIT_PROTOCOL "https")
 
 # Slicer sources
@@ -23,6 +31,9 @@ endif()
 if(NOT DEFINED slicersources_BINARY_DIR)
   set(slicersources_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/slicersources-subbuild)
 endif()
+
+# 应用 Slicer 本地化 patch（中文界面等修改）
+include(${CMAKE_SOURCE_DIR}/CMake/ApplySlicerPatches.cmake)
 
 # Windows: 配置 NSIS/CPack 行为（不再修改上游 Slicer 源码）
 if(WIN32)
@@ -46,12 +57,12 @@ set(Slicer_MAIN_PROJECT "RadianceApp")
 
 # Set organization
 set(Slicer_ORGANIZATION_DOMAIN "Vision Magic Ecosystem.com" CACHE STRING "Organization domain" FORCE)
-set(Slicer_ORGANIZATION_NAME   "Vision Magic Ecosystem" CACHE STRING "Organization name" FORCE)
+set(Slicer_ORGANIZATION_NAME   "VisionMagic" CACHE STRING "Organization name" FORCE)
 
 # Default home and favorite modules
 set(SlicerApp_APPLICATION_NAME "医学影像三维重建软件" CACHE STRING "Application name" FORCE)
 set(SlicerApp_APPLICATION_DISPLAY_NAME "医学影像三维重建软件" CACHE STRING "Application display name" FORCE)
-set(Slicer_DISCLAIMER_AT_STARTUP "感谢您使用 %1！<br><br>本软件仅供研究使用，不用于临床诊断。" CACHE STRING "Disclaimer text" FORCE)
+set(Slicer_DISCLAIMER_AT_STARTUP "" CACHE STRING "Disclaimer text" FORCE)
 set(Slicer_EXTENSIONS_DIRBASENAME "VisionMagicExtensions" CACHE STRING "Extensions directory name" FORCE)
 if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
   message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")
@@ -109,10 +120,22 @@ set(Slicer_USE_FILE "${Slicer_BINARY_DIR}/UseSlicer.cmake"
     CACHE FILEPATH "Path to UseSlicer.cmake" FORCE)
 set(Slicer_USE_FILE_CONFIG "${Slicer_BINARY_DIR}/UseSlicer.cmake"
     CACHE FILEPATH "UseSlicer path embedded in extension-friendly config" FORCE)
-set(CTK_DIR "${CMAKE_BINARY_DIR}/CTK-build"
-    CACHE PATH "CTK build tree for CONFIG-mode consumers" FORCE)
-set(SlicerExecutionModel_DIR "${CMAKE_BINARY_DIR}/SlicerExecutionModel-build"
-    CACHE PATH "SlicerExecutionModel build tree for CONFIG-mode consumers" FORCE)
+# Only set CTK_DIR if the directory exists (for superbuild, it will be created during build)
+if(EXISTS "${CMAKE_BINARY_DIR}/CTK-build")
+  set(CTK_DIR "${CMAKE_BINARY_DIR}/CTK-build"
+      CACHE PATH "CTK build tree for CONFIG-mode consumers" FORCE)
+else()
+  # Clear CTK_DIR to let superbuild handle it
+  unset(CTK_DIR CACHE)
+endif()
+# Only set SlicerExecutionModel_DIR if the directory exists (for superbuild, it will be created during build)
+if(EXISTS "${CMAKE_BINARY_DIR}/SlicerExecutionModel-build")
+  set(SlicerExecutionModel_DIR "${CMAKE_BINARY_DIR}/SlicerExecutionModel-build"
+      CACHE PATH "SlicerExecutionModel build tree for CONFIG-mode consumers" FORCE)
+else()
+  # Clear SlicerExecutionModel_DIR to let superbuild handle it
+  unset(SlicerExecutionModel_DIR CACHE)
+endif()
 
 # Ensure Slicer SuperBuild also searches our local SuperBuild directory
 # for any future custom External_*.cmake files.
@@ -121,6 +144,8 @@ include(ExternalProjectDependency)
 if(NOT DEFINED RS_SKIP_FETCH_EXT)
   set(RS_SKIP_FETCH_EXT OFF CACHE BOOL "Skip fetching bundled extensions (set ON to reuse cached dirs)" FORCE)
 endif()
+mark_as_superbuild(ADDITIONAL_CXX_FLAGS:STRING)
+mark_as_superbuild(ADDITIONAL_C_FLAGS:STRING)
 mark_as_superbuild(Slicer_INSTALL_QTSCRIPTEDMODULES_LIB_DIR:PATH)
 mark_as_superbuild(Slicer_ADDITIONAL_MODULE_PATHS:STRING)
 mark_as_superbuild(Slicer_EXTENSIONS_DIRBASENAME:STRING)
@@ -250,7 +275,7 @@ list(REMOVE_ITEM Slicer_CLIMODULES_DISABLED
 set(Slicer_EXTENSION_SOURCE_DIRS
   #${CMAKE_CURRENT_SOURCE_DIR}/Modules/CLI/MyCLIModule
   #${CMAKE_CURRENT_SOURCE_DIR}/Modules/Loadable/MyLoadableModule
-  # Removed Home scripted module to rely on Welcome + custom layout only
+  ${CMAKE_CURRENT_SOURCE_DIR}/Modules/Scripted/Home
   )
 
 # Add remote extension source directories
@@ -328,13 +353,6 @@ set(Slicer_EXTENSION_INSTALL_DIRS
   CACHE STRING "Pre-installed extensions to bundle" FORCE)
 message(STATUS "Bundled pre-installed extensions: ${Slicer_EXTENSION_INSTALL_DIRS}")
 
-# Add Slicer sources
-add_subdirectory(${slicersources_SOURCE_DIR} ${slicersources_BINARY_DIR})
-
-# Convenience target to avoid triggering the mother 'Slicer' target by mistake
-add_custom_target(Slicer-fast
-  DEPENDS Slicer-configure Slicer-build Slicer-install)
-
 #------------------------------------------------------------------------------
 # 中文翻译支持
 # 将SlicerLanguageTranslations翻译文件编译并安装到应用中
@@ -347,6 +365,13 @@ set(SLICER_TRANSLATIONS_COMPONENTS "Slicer;CTK" CACHE STRING "要编译的翻译
 mark_as_superbuild(SLICER_TRANSLATIONS_DIR:PATH)
 mark_as_superbuild(SLICER_TRANSLATIONS_LANGUAGES:STRING)
 mark_as_superbuild(SLICER_TRANSLATIONS_COMPONENTS:STRING)
+
+# Add Slicer sources
+add_subdirectory(${slicersources_SOURCE_DIR} ${slicersources_BINARY_DIR})
+
+# Convenience target to avoid triggering the mother 'Slicer' target by mistake
+add_custom_target(Slicer-fast
+  DEPENDS Slicer-configure Slicer-build Slicer-install)
 
 if(EXISTS "${SLICER_TRANSLATIONS_DIR}" AND Slicer_BUILD_I18N_SUPPORT)
   message(STATUS "SlicerLanguageTranslations: ${SLICER_TRANSLATIONS_DIR}")
