@@ -76,12 +76,9 @@ QString VolumeImportValidator::validate(vtkMRMLNode* node)
   if (!markedFromDicom)
     {
     const char* fileName = storageNode->GetFileName();
-    if (fileName && *fileName)
+    if (!fileName || !*fileName || !isDicomSource(QString::fromUtf8(fileName)))
       {
-      if (!isDicomSource(QString::fromUtf8(fileName)))
-        {
-        return QString::fromUtf8("【格式错误】仅支持 DICOM 影像，当前文件格式不符合要求。请通过 DICOM 模块或 DICOM 格式文件导入。");
-        }
+      return QString::fromUtf8("【格式错误】无法确认 DICOM 来源，请通过 DICOM 模块导入。");
       }
     }
 
@@ -98,7 +95,11 @@ QString VolumeImportValidator::validate(vtkMRMLNode* node)
   imageData->GetDimensions(dims);
   for (int i = 0; i < 3; ++i)
     {
-    double lengthMm = std::abs(static_cast<double>(dims[i]) * spacing[i]);
+    if (dims[i] <= 0 || !std::isfinite(spacing[i]) || spacing[i] <= 0.0)
+      {
+      return QString::fromUtf8("【几何错误】影像尺寸或 spacing 无效。");
+      }
+    double lengthMm = static_cast<double>(dims[i]) * spacing[i];
     if (lengthMm > MaxRulerLengthMm)
       {
       return QString::fromUtf8("【尺寸超限】影像任一边物理长度不得超过 2.5 米，当前约 %1 米。")
