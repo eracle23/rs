@@ -100,6 +100,22 @@ bool UserManager::initialize()
     return false;
     }
 
+  // 采用 SQLite WAL 与完整同步模式，降低异常退出时的数据库风险。
+  QSqlQuery durability(d->database);
+  if (!durability.exec("PRAGMA journal_mode=WAL") || !durability.next() ||
+      durability.value(0).toString().compare("wal", Qt::CaseInsensitive) != 0)
+    {
+    d->lastError = QString::fromUtf8("无法启用用户数据库 WAL 模式: %1")
+      .arg(durability.lastError().text());
+    return false;
+    }
+  if (!durability.exec("PRAGMA synchronous=FULL"))
+    {
+    d->lastError = QString::fromUtf8("无法设置用户数据库同步模式: %1")
+      .arg(durability.lastError().text());
+    return false;
+    }
+
   QSqlQuery query(d->database);
 
   bool success = true;
