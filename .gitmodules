@@ -1,0 +1,3 @@
+[submodule "Translations/SlicerLanguageTranslations"]
+	path = Translations/SlicerLanguageTranslations
+	url = https://github.com/Slicer/SlicerLanguageTranslations.git

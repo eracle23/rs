@@ -1,0 +1,28 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/RadianceToolbar">
+    <file alias="toolbar_home.svg">Icons/Toolbar/toolbar_home.svg</file>
+    <file alias="toolbar_data.svg">Icons/Toolbar/toolbar_data.svg</file>
+    <file alias="toolbar_volumes.svg">Icons/Toolbar/toolbar_volumes.svg</file>
+    <file alias="toolbar_segment.svg">Icons/Toolbar/toolbar_segment.svg</file>
+    <file alias="toolbar_render.svg">Icons/Toolbar/toolbar_render.svg</file>
+    <file alias="toolbar_settings.svg">Icons/Toolbar/toolbar_settings.svg</file>
+    <file alias="toolbar_add_data.svg">Icons/Toolbar/toolbar_add_data.svg</file>
+    <file alias="toolbar_dicom.svg">Icons/Toolbar/toolbar_dicom.svg</file>
+    <file alias="toolbar_save.svg">Icons/Toolbar/toolbar_save.svg</file>
+    <file alias="toolbar_undo.svg">Icons/Toolbar/toolbar_undo.svg</file>
+    <file alias="toolbar_redo.svg">Icons/Toolbar/toolbar_redo.svg</file>
+    <file alias="toolbar_snapshot.svg">Icons/Toolbar/toolbar_snapshot.svg</file>
+    <file alias="toolbar_layout.svg">Icons/Toolbar/toolbar_layout.svg</file>
+    <file alias="toolbar_scene_view.svg">Icons/Toolbar/toolbar_scene_view.svg</file>
+    <file alias="toolbar_extensions.svg">Icons/Toolbar/toolbar_extensions.svg</file>
+    <file alias="toolbar_view_control.svg">Icons/Toolbar/toolbar_view_control.svg</file>
+    <file alias="toolbar_window_level.svg">Icons/Toolbar/toolbar_window_level.svg</file>
+    <file alias="toolbar_place.svg">Icons/Toolbar/toolbar_place.svg</file>
+    <file alias="toolbar_crosshair.svg">Icons/Toolbar/toolbar_crosshair.svg</file>
+    <file alias="toolbar_transforms.svg">Icons/Toolbar/toolbar_transforms.svg</file>
+    <file alias="toolbar_markups.svg">Icons/Toolbar/toolbar_markups.svg</file>
+    <file alias="toolbar_models.svg">Icons/Toolbar/toolbar_models.svg</file>
+    <file alias="toolbar_elastix.svg">Icons/Toolbar/toolbar_elastix.svg</file>
+  </qresource>
+</RCC>
