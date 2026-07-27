@@ -1,0 +1,22 @@
+#ifndef __RadianceApp_RadianceAppVersion_h
+#define __RadianceApp_RadianceAppVersion_h
+
+#include <QString>
+
+namespace RadianceAppVersion
+{
+
+/// 与 slicer-application-properties.cmake 中 VERSION_RELEASE 一致（构建时写入）
+inline QString displayVersionString()
+{
+  return QStringLiteral("@VERSION_RELEASE@");
+}
+
+inline QString releaseVersionString()
+{
+  return QStringLiteral("V@VERSION_MAJOR@");
+}
+
+} // namespace RadianceAppVersion
+
+#endif

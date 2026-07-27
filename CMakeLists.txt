@@ -68,8 +68,8 @@ if(Slicer_EXTENSIONS_DIRBASENAME STREQUAL "")
   message(FATAL_ERROR "Slicer_EXTENSIONS_DIRBASENAME 为空。请在 SuperBuild 前传或用 -D 显式设置。")
 endif()
 set(Slicer_DEFAULT_HOME_MODULE "Volumes" CACHE STRING "Default home module" FORCE)
-# 常用模块列表：DICOM, Volumes, VolumeRendering, SegmentEditor, Transforms, Markups, Models, Elastix
-set(Slicer_DEFAULT_FAVORITE_MODULES "DICOM, Volumes, VolumeRendering, SegmentEditor, Transforms, Markups, Models, Elastix")
+# 常用模块列表（工具栏按钮）：Data, DICOM, SegmentEditor, VolumeRendering, Models
+set(Slicer_DEFAULT_FAVORITE_MODULES "Data, DICOM, SegmentEditor, VolumeRendering, Models")
 
 #
 # Ensure Slicer version components are available early (before SuperBuild/cache setup)
@@ -160,6 +160,13 @@ mark_as_superbuild(Slicer_USE_SimpleITK:BOOL)
 mark_as_superbuild(Slicer_EXTENSION_INSTALL_DIRS:STRING)
 mark_as_superbuild(CPACK_PROJECT_CONFIG_FILE:FILEPATH)
 
+# Slicer SuperBuild scripts (e.g. External_python-numpy.cmake) expect python_DIR to be defined
+# when using the bundled Python. Ensure it is set and forwarded to the inner build.
+if(NOT DEFINED python_DIR OR "${python_DIR}" STREQUAL "")
+  set(python_DIR "${CMAKE_BINARY_DIR}/python-install" CACHE PATH "Slicer bundled Python install dir" FORCE)
+endif()
+mark_as_superbuild(python_DIR:PATH)
+
 # Additional Slicer dependencies looked up in EXTERNAL_PROJECT_ADDITIONAL_DIR
 set(Slicer_ADDITIONAL_DEPENDENCIES
   )
@@ -200,7 +207,19 @@ if(WIN32)
 endif()
 
 # Slicer options
-option(BUILD_TESTING                            "Build application test suite"                        ON)
+option(BUILD_TESTING                            "Build application test suite"                        OFF)
+
+# Enable response files for Ninja to avoid Windows command line length limit
+# This is critical for Slicer builds with many dependencies
+if(CMAKE_GENERATOR STREQUAL "Ninja")
+  set(CMAKE_NINJA_FORCE_RESPONSE_FILE ON CACHE BOOL "Force Ninja to use response files" FORCE)
+  # CMake enforces a minimum of 128 for CMAKE_OBJECT_PATH_MAX (values below are ignored).
+  # Keep it at the minimum to reduce warnings while still enabling path shortening logic.
+  set(CMAKE_OBJECT_PATH_MAX 128 CACHE STRING "Maximum object file path length" FORCE)
+  # Pass to Slicer inner build
+  mark_as_superbuild(CMAKE_NINJA_FORCE_RESPONSE_FILE:BOOL)
+  mark_as_superbuild(CMAKE_OBJECT_PATH_MAX:STRING)
+endif()
 option(Slicer_BUILD_APPLICATIONUPDATE_SUPPORT   "Build application update support"                    OFF)
 option(Slicer_BUILD_DOCUMENTATION               "Build documentation (Doxygen, sphinx, ...)"          OFF)
 if(WIN32)
@@ -224,7 +243,7 @@ option(Slicer_USE_PYTHONQT                      "Build application with Python s
 set(Slicer_USE_PYTHONQT ON CACHE BOOL "Build application with Python support" FORCE)
 set(Slicer_USE_PYTHONQT_WITH_OPENSSL ON CACHE BOOL "Bundle Python SSL support" FORCE)
 
-# 国际化支持
+# 国际化支持（配合 slicer-external-translations.patch 使用 SlicerLanguageTranslations）
 option(Slicer_BUILD_I18N_SUPPORT                "Build application with internationalization support" ON)
 set(Slicer_BUILD_I18N_SUPPORT ON CACHE BOOL "Build application with internationalization support" FORCE)
 set(Slicer_LANGUAGES "zh_CN" CACHE STRING "Supported languages for internationalization" FORCE)

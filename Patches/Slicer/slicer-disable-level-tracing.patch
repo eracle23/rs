@@ -1,0 +1,44 @@
+diff --git a/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/__init__.py b/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/__init__.py
+index 1d5b1b0..c2b84a1 100644
+--- a/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/__init__.py
++++ b/Modules/Loadable/Segmentations/EditorEffects/Python/SegmentEditorEffects/__init__.py
+@@ -6,14 +6,9 @@ from .AbstractScriptedSegmentEditorAutoCompleteEffect import *
+ 
+ from .SegmentEditorDrawEffect import *
+-from .SegmentEditorFillBetweenSlicesEffect import *
+-from .SegmentEditorGrowFromSeedsEffect import *
+-from .SegmentEditorHollowEffect import *
+ from .SegmentEditorIslandsEffect import *
+-from .SegmentEditorLevelTracingEffect import *
+ from .SegmentEditorLogicalEffect import *
+ from .SegmentEditorMarginEffect import *
+-from .SegmentEditorMaskVolumeEffect import *
+ from .SegmentEditorSmoothingEffect import *
+ from .SegmentEditorThresholdEffect import *
+ 
+ from SegmentEditorEffects import *
+@@ -24,13 +19,12 @@
+-editorEffectNames = [
+-    "SegmentEditorDrawEffect",
+-    "SegmentEditorFillBetweenSlicesEffect",
+-    "SegmentEditorGrowFromSeedsEffect",
+-    "SegmentEditorHollowEffect",
+-    "SegmentEditorIslandsEffect",
+-    "SegmentEditorLevelTracingEffect",
+-    "SegmentEditorLogicalEffect",
+-    "SegmentEditorMarginEffect",
+-    "SegmentEditorMaskVolumeEffect",
+-    "SegmentEditorSmoothingEffect",
+-    "SegmentEditorThresholdEffect",
+-]
++# Keep only a curated subset of scripted Segment Editor effects.
++# (C++ effects such as Paint/Erase/Scissors are registered elsewhere.)
++editorEffectNames = [
++    "SegmentEditorDrawEffect",      # 绘制（脚本版）
++    "SegmentEditorIslandsEffect",   # 岛屿
++    "SegmentEditorLogicalEffect",   # 逻辑运算
++    "SegmentEditorMarginEffect",    # 边距
++    "SegmentEditorSmoothingEffect", # 平滑
++    "SegmentEditorThresholdEffect", # 阈值
++]
+\ No newline at end of file

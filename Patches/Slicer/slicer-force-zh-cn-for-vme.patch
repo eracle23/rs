@@ -1,0 +1,22 @@
+diff --git a/Base/QTCore/qSlicerCoreApplication.cxx b/Base/QTCore/qSlicerCoreApplication.cxx
+--- a/Base/QTCore/qSlicerCoreApplication.cxx
++++ b/Base/QTCore/qSlicerCoreApplication.cxx
+@@ -519,6 +519,17 @@
+     qSlicerCoreApplication::loadLanguage();
+   }
+ #endif
++#ifdef Slicer_BUILD_I18N_SUPPORT
++  // VisionMagicEcosystem: 若 settings 未启用 I18N 或未设置 zh_CN，强制使用中文
++  // 注：Main.cxx 设置 applicationName 为 "VisionMagic"，需同时匹配 VisionMagic / VisionMagicEcosystem
++  if (q->applicationName().contains("VisionMagic", Qt::CaseInsensitive)
++      && this->ApplicationLocaleName == "en_US")
++  {
++    this->ApplicationLocaleName = "zh_CN";
++    this->ApplicationLocale = QLocale(this->ApplicationLocaleName);
++    q->userSettings()->setValue("Internationalization/Enabled", true);
++    q->userSettings()->setValue("language", "zh_CN");
++    qSlicerCoreApplication::loadLanguage();
++  }
++#endif
+ 
+   // Prevent extensions manager model from displaying popups during startup (don't ask for confirmation)

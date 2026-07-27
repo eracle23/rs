@@ -28,11 +28,12 @@
 class QAction;
 class QIcon;
 class QColor;
+class ThemeSync;
+class SliceColorAdapter;
+class SystemColorSchemeWatcher;
 
 // Slicer forward declarations
 class qSlicerAbstractModule;
-class qSlicerModuleFinderDialog;
-class qSlicerModulesListView;
 
 //-----------------------------------------------------------------------------
 class Q_RADIANCE_APP_EXPORT qRadianceAppMainWindowPrivate
@@ -47,40 +48,20 @@ public:
   virtual void init();
   /// Reimplemented for custom behavior
   virtual void setupUi(QMainWindow * mainWindow);
+  void applyThemeMode(const QString& mode, bool persist);
+  void applyBrandHeaderTheme(QMainWindow* mainWindow, const QString& mode);
 
 protected:
-  /// Apply Radiance palette to default Slicer toolbars and their actions.
-  void applyToolbarBranding();
-
-  /// Return the accent color used across the Radiance shell.
+  QString CurrentThemeMode{QStringLiteral("dark")};
   QColor brandAccentColor() const;
-
-  /// Return a monochrome version of the source icon tinted with the Radiance accent color.
   QIcon createTintedIcon(const QIcon& source, const QColor& tint) const;
-
-  /// Create a Radiance-themed icon for module actions.
   QIcon createModuleIcon(const QIcon& baseIcon, const QColor& accentColor) const;
-
-  /// Update the module selector combo and nested menus with Radiance-themed icons.
-  void brandModuleSelectorMenu(const QColor& accentColor);
-
-  /// Generate Radiance-specific glyph used for the Module Finder action.
   QIcon createModuleFinderIcon(const QColor& accentColor) const;
-
-  /// Apply branding to the module finder dialog if it is currently visible.
-  void brandAnyVisibleModuleFinder(const QColor& accentColor);
-
-  /// Apply branding to a specific module finder dialog instance.
-  void brandModuleFinderDialog(qSlicerModuleFinderDialog* dialog, const QColor& accentColor);
-
-  /// Apply branding to the module list view backing the finder dialog.
-  void brandModulesListView(qSlicerModulesListView* listView, const QColor& accentColor);
-
-  /// Ensure a single module's QAction and related UI elements use Radiance icons.
   QIcon brandModuleByName(const QString& moduleName, const QColor& accentColor);
 
-  /// Refresh branding across all currently loaded modules.
-  void brandAllModules(const QColor& accentColor);
+  ThemeSync* ThemeSyncHandler{nullptr};
+  SliceColorAdapter* SliceColorAdapterHandler{nullptr};
+  SystemColorSchemeWatcher* SystemColorSchemeWatcherHandler{nullptr};
 };
 
 #endif

@@ -1,0 +1,31 @@
+flowchart LR
+    subgraph workstation [单机工作站]
+        subgraph source [本地数据源]
+            DICOM[DICOM文件夹/影像文件]
+            Scene[场景文件 mrml/mrb]
+        end
+
+        subgraph app [VisionMagicEcosystem.exe]
+            Login[用户登录\nUserManager]
+            Import[DICOM导入\nVolumeImportValidator]
+            Process[MRML场景处理\n2D/3D/分割/标注]
+            Logger[AppLogger审计日志]
+        end
+
+        subgraph storage [本地存储]
+            UserDB[(users.db)]
+            DicomDB[(DICOMDatabase)]
+            Logs[(logs目录)]
+            Output[(场景/导出文件)]
+        end
+
+        DICOM -->|本地文件读取| Import
+        Scene -->|加载| Import
+        Login <-->|账户校验| UserDB
+        Import -->|校验通过| Process
+        Process --> Output
+        Import --> DicomDB
+        Login --> Logger
+        Import --> Logger
+        Process --> Logger
+    end

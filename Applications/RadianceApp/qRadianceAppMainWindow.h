@@ -36,9 +36,15 @@ public:
 
 public slots:
   void on_HelpAboutRadianceAppAction_triggered();
+  /// 保存（弹窗提示成功/失败）
+  void on_FileSaveSceneAction_triggered() override;
+  void on_SDBSaveToDirectoryAction_triggered() override;
+  void on_SDBSaveToMRBAction_triggered() override;
   // Keep access consistent with base class (qSlicerMainWindow declares this in public slots)
   void setHomeModuleCurrent() override;
   void on_FavoriteModulesChanged() override;
+  void restoreGUIState(bool force = false) override;
+  void saveGUIState(bool force = false) override;
 
 protected slots:
   void onModuleLoaded(const QString& moduleName) override;

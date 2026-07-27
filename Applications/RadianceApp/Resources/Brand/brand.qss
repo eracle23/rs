@@ -1,19 +1,42 @@
 /* Minimal brand QSS – follow current palette; avoid hard-coded colors */
-QWidget {
+QMainWindow,
+QDialog,
+QMenuBar,
+QMenu,
+QToolBar,
+QDockWidget,
+QFrame,
+QGroupBox,
+QTabWidget::pane {
   background: palette(window);
+  color: palette(window-text);
+}
+
+QLabel {
   color: palette(window-text);
 }
 
 QGroupBox::title {
   padding: 2px 6px;
 }
-
 QPushButton {
   padding: 4px 10px;
   border-radius: 4px;
-  background: palette(highlight);
-  color: palette(highlighted-text);
-  border: 1px solid palette(mid);
+  background: palette(light);
+  color: palette(button-text);
+  border: 1px solid palette(dark); /* 边框更明显 */
+}
+
+QPushButton:hover {
+  background: palette(light);
+  border-color: palette(mid);
+}
+
+QPushButton:pressed,
+QPushButton:checked {
+  background: palette(window);
+  color: palette(button-text);
+  border-color: palette(mid);
 }
 
 QToolTip {

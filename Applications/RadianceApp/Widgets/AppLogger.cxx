@@ -19,6 +19,7 @@
 #include <QTextStream>
 #include <QMutexLocker>
 #include <QDebug>
+#include <cstdio>
 
 //-----------------------------------------------------------------------------
 AppLogger& AppLogger::instance()
@@ -53,6 +54,17 @@ bool AppLogger::initialize()
 
   ensureLogDirectory();
   rotateLogFileIfNeeded();
+
+  // 在用户临时目录写入日志路径标记，便于查找
+  QString markerPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/VisionMagic_log_path.txt";
+  QFile marker(markerPath);
+  if (marker.open(QIODevice::WriteOnly | QIODevice::Text))
+  {
+    QTextStream ts(&marker);
+    ts.setCodec("UTF-8");
+    ts << m_logDirectory << "\n" << m_currentLogPath;
+    marker.close();
+  }
 
   m_initialized = true;
   
@@ -96,14 +108,53 @@ void AppLogger::shutdown()
 //-----------------------------------------------------------------------------
 void AppLogger::ensureLogDirectory()
 {
-  // 获取应用数据目录
+  // 优先使用 AppData（在 setApplicationName 后调用时路径正确，且用户总有写权限）
   QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-  m_logDirectory = appDataPath + "/logs";
-  
-  QDir dir(m_logDirectory);
-  if (!dir.exists())
+  if (!appDataPath.isEmpty())
   {
-    dir.mkpath(".");
+    m_logDirectory = appDataPath + "/logs";
+    QDir dir(m_logDirectory);
+    if (!dir.exists())
+    {
+      dir.mkpath(".");
+    }
+    // 验证可写
+    QFile testFile(m_logDirectory + "/.write_test");
+    if (testFile.open(QIODevice::WriteOnly))
+    {
+      testFile.close();
+      testFile.remove();
+      return;
+    }
+  }
+
+  // 回退：安装目录
+  QString installDir = QCoreApplication::applicationDirPath();
+  if (!installDir.isEmpty())
+  {
+    QString installLogDir = installDir + "/logs";
+    QDir installDirObj(installLogDir);
+    if (!installDirObj.exists())
+    {
+      installDirObj.mkpath(".");
+    }
+    QFile testFile(installLogDir + "/.write_test");
+    if (testFile.open(QIODevice::WriteOnly))
+    {
+      testFile.close();
+      testFile.remove();
+      m_logDirectory = installLogDir;
+      return;
+    }
+  }
+
+  // 最后回退：系统临时目录
+  QString tempPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation);
+  m_logDirectory = tempPath + "/VisionMagic_logs";
+  QDir tempDir(m_logDirectory);
+  if (!tempDir.exists())
+  {
+    tempDir.mkpath(".");
   }
 }
 
@@ -128,7 +179,8 @@ void AppLogger::rotateLogFileIfNeeded()
     m_logFile.setFileName(m_currentLogPath);
     if (!m_logFile.open(QIODevice::Append | QIODevice::Text))
     {
-      qWarning() << "Failed to open log file:" << m_currentLogPath;
+      // 避免 qWarning 触发 messageHandler -> AppLogger 导致死锁
+      fprintf(stderr, "AppLogger: Failed to open log file: %s\n", qPrintable(m_currentLogPath));
     }
     
     // 清理旧日志
@@ -144,23 +196,21 @@ void AppLogger::log(LogLevel level, const QString& message, const QString& categ
     initialize();
   }
 
-  QMutexLocker locker(&m_mutex);
-  
-  rotateLogFileIfNeeded();
-  
-  QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
-  QString levelStr = levelToString(level);
-  QString categoryStr = category.isEmpty() ? "General" : category;
-  
-  QString entry = QString("[%1] [%2] [%3] %4\n")
-                  .arg(timestamp)
-                  .arg(levelStr)
-                  .arg(categoryStr)
-                  .arg(message);
-  
-  writeToFile(entry);
-  
-  // 同时输出到调试控制台
+  QString entry;
+  {
+    QMutexLocker locker(&m_mutex);
+    rotateLogFileIfNeeded();
+    QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
+    QString levelStr = levelToString(level);
+    QString categoryStr = category.isEmpty() ? "General" : category;
+    entry = QString("[%1] [%2] [%3] %4\n")
+            .arg(timestamp)
+            .arg(levelStr)
+            .arg(categoryStr)
+            .arg(message);
+    writeToFile(entry);
+  }
+  // mutex 已释放后再调用 qInfo/qDebug，避免 radianceQtMessageHandler 回调 AppLogger 时死锁
   switch (level)
   {
     case Debug:
@@ -177,9 +227,7 @@ void AppLogger::log(LogLevel level, const QString& message, const QString& categ
       qCritical().noquote() << entry.trimmed();
       break;
   }
-  
-  locker.unlock();
-  emit logEntryAdded(level, message, categoryStr);
+  emit logEntryAdded(level, message, category.isEmpty() ? QString("General") : category);
 }
 
 //-----------------------------------------------------------------------------
@@ -287,7 +335,8 @@ void AppLogger::cleanupOldLogs()
     if (fileDate.isValid() && fileDate < cutoffDate)
     {
       QFile::remove(fileInfo.absoluteFilePath());
-      qDebug() << "Removed old log file:" << fileInfo.fileName();
+      // 避免 qDebug 触发 messageHandler -> AppLogger 导致死锁（cleanupOldLogs 在 log() 持有 mutex 时调用）
+      fprintf(stderr, "AppLogger: Removed old log file: %s\n", qPrintable(fileInfo.fileName()));
     }
   }
 }

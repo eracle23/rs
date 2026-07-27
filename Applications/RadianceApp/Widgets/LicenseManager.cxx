@@ -11,9 +11,7 @@
 ==============================================================================*/
 
 #include "LicenseManager.h"
-
-// Slicer includes
-#include "vtkSlicerVersionConfigure.h"
+#include "RadianceAppVersion.h" // ${CMAKE_CURRENT_BINARY_DIR}/RadianceAppVersion.h
 
 // Qt includes
 #include <QCoreApplication>
@@ -116,22 +114,12 @@ QString LicenseManager::getStatusMessage()
 //-----------------------------------------------------------------------------
 QString LicenseManager::getVersionString()
 {
-  // 定期版本号: V1.0.0.2
-  return QString("V%1.%2.%3.%4")
-    .arg(Slicer_VERSION_MAJOR)
-    .arg(Slicer_VERSION_MINOR)
-    .arg(Slicer_VERSION_PATCH)
-#ifdef Slicer_VERSION_TWEAK
-    .arg(Slicer_VERSION_TWEAK);
-#else
-    .arg(0);
-#endif
+  return RadianceAppVersion::displayVersionString();
 }
 
 //-----------------------------------------------------------------------------
 QString LicenseManager::getReleaseVersion()
 {
-  // 发布版本号: V1
-  return QString("V%1").arg(Slicer_VERSION_MAJOR);
+  return RadianceAppVersion::releaseVersionString();
 }
 

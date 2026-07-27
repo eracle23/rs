@@ -104,6 +104,8 @@ class VisionMagicConfig(ScriptedLoadableModule):
                 "Threshold",      # 阈值
                 "Paint",          # 画笔
                 "Erase",          # 橡皮擦
+                "Scissors",       # 剪刀
+                "Margin",         # 边距
                 "Smoothing",      # 平滑
                 "Islands",        # 孤岛
                 "Logical operators"  # 逻辑运算
@@ -115,14 +117,24 @@ class VisionMagicConfig(ScriptedLoadableModule):
             settings.setValue("SegmentEditor/UnorderedEffectsVisible", False)
             
             # 如果 Segment Editor 已打开，立即应用配置
+            configured = 0
+            def apply_to(editor_widget):
+                nonlocal configured
+                if not editor_widget:
+                    return
+                editor_widget.setEffectNameOrder(allowedEffects)
+                editor_widget.setUnorderedEffectsVisible(False)
+                configured += 1
+
             if hasattr(slicer.modules, 'segmenteditor'):
                 widget = slicer.modules.segmenteditor.widgetRepresentation()
                 if widget:
-                    editorWidget = slicer.util.findChild(widget, "qMRMLSegmentEditorWidget")
-                    if editorWidget:
-                        editorWidget.setEffectNameOrder(allowedEffects)
-                        editorWidget.setUnorderedEffectsVisible(False)
-            
+                    apply_to(slicer.util.findChild(widget, "qMRMLSegmentEditorWidget"))
+            main_win = slicer.util.mainWindow()
+            if main_win:
+                for editor_widget in slicer.util.findChildren(main_win, "qMRMLSegmentEditorWidget"):
+                    apply_to(editor_widget)
+
             logging.info("VisionMagic: Segment Editor effects configured")
             
         except Exception as e:

@@ -35,12 +35,18 @@ public:
   virtual ~qLicenseCheckDialog();
 
   /**
-   * @brief 执行授权检查
-   * @return QDialog::Accepted 授权通过，QDialog::Rejected 授权失败
+   * @brief 执行登录与授权检查（先登录，通过后再验证授权）
+   * @return QDialog::Accepted 登录且授权通过，QDialog::Rejected 用户取消或失败
    */
   int exec() override;
 
+  /** 登录成功后取得的用户名（可供主程序使用） */
+  QString loggedInUsername() const;
+
 protected slots:
+  /** 用户点击登录按钮：校验账号密码，通过后切换到授权验证页 */
+  void onLoginClicked();
+
   /**
    * @brief 开始授权检查
    */

@@ -1,8 +1,8 @@
 {
-  "version": 6,
+  "version": 3,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 23,
+    "minor": 19,
     "patch": 0
   },
   "configurePresets": [
@@ -20,6 +20,7 @@
         "Slicer_BUILD_EXTENSIONMANAGER_SUPPORT": "ON",
         "Slicer_USE_PYTHONQT": "ON",
         "Slicer_BUILD_WIN32_CONSOLE": "OFF",
+        "Slicer_BUILD_WIN32_CONSOLE_LAUNCHER": "OFF",
         "CMAKE_NINJA_FORCE_RESPONSE_FILE": "ON",
         "CMAKE_OBJECT_PATH_MAX": "128",
         "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "ProgramDatabase",
@@ -84,7 +85,7 @@
         "Slicer_BUILD_TESTING": "OFF",
         "Slicer_BUILD_QTSCRIPTEDMODULES": "ON",
         "Slicer_BUILD_EXTENSIONMANAGER_SUPPORT": "ON",
-        "Qt5_DIR": "C:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5"
+        "Qt5_DIR": "D:/Qt/5.15.2/msvc2019_64/lib/cmake/Qt5"
       }
     },
     {

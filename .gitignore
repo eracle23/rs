@@ -39,3 +39,21 @@ test_settings.py
 
 # Qt translation compiled files (source .ts files are tracked)
 *.qm
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Build
+build/
+out/
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+
+# IDE
+.vscode/
+.idea/

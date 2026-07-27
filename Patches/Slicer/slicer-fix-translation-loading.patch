@@ -1,0 +1,27 @@
+diff --git a/Base/QTCore/qSlicerCoreApplication.cxx b/Base/QTCore/qSlicerCoreApplication.cxx
+index 2a58bb2..4b32caf 100644
+--- a/Base/QTCore/qSlicerCoreApplication.cxx
++++ b/Base/QTCore/qSlicerCoreApplication.cxx
+@@ -2117,7 +2117,8 @@ void qSlicerCoreApplication::loadTranslations(const QString& dir)
+     if(!translator->load(qmFilePath))
+     {
+       qDebug() << "The File " << qmFile << " hasn't been loaded in the translator";
+-      return;
++      delete translator;
++      continue;
+     }
+     app->installTranslator(translator);
+   }
+@@ -2143,6 +2144,12 @@ QStringList qSlicerCoreApplication::translationFolders()
+   if (!app->isInstalled())
+   {
+     qmDirs << QString(Slicer_QM_OUTPUT_DIRS).split(";");
++    // Add executable directory and its translations subdir as fallback (helps build tree / custom layouts)
++    QString exeDir = app->applicationDirPath();
++    if (!exeDir.isEmpty())
++    {
++      qmDirs << exeDir << (exeDir + QString("/translations"));
++    }
+   }
+ 
+   return qmDirs;

@@ -18,12 +18,16 @@
 // Radiance includes
 #include "qRadianceAppMainWindow.h"
 #include "Widgets/qAppStyle.h"
+#include "Widgets/AppLogger.h"
+#include "Widgets/qLoginDialog.h"
+#include "Widgets/UserManager.h"
+#include "Widgets/VolumeImportValidator.h"
 
 // Slicer includes
 #include "qSlicerApplication.h"
 #include "qSlicerApplicationHelper.h"
 #include "vtkSlicerConfigure.h" // For Slicer_MAIN_PROJECT_APPLICATION_NAME
-#include "vtkSlicerVersionConfigure.h" // For Slicer_MAIN_PROJECT_VERSION_FULL
+#include "RadianceAppVersion.h"
 
 // Qt includes
 #include <QCoreApplication>
@@ -36,11 +40,59 @@
 #include <QVariant>
 #include <QMetaType>
 #include <QTextCodec>
+#include <QDialog>
 #include <QDir>
 // Theme/Settings
 #include <QSettings>
 #include <QStyle>
 #include <QStyleFactory>
+#include <QMutex>
+#include <QMessageBox>
+#include <QLockFile>
+#include <QStandardPaths>
+namespace {
+
+// ----------------------------------------------------------------------------
+// Forward Qt logs to AppLogger (and still allow default handlers if needed).
+void radianceQtMessageHandler(QtMsgType type, const QMessageLogContext& context, const QString& msg)
+{
+  // Avoid recursion if logger itself logs through Qt.
+  static thread_local bool inHandler = false;
+  if (inHandler)
+    {
+    return;
+    }
+  inHandler = true;
+
+  QString category = "Qt";
+  if (context.category && context.category[0] != '\0')
+    {
+    category = QString("Qt/%1").arg(QString::fromUtf8(context.category));
+    }
+
+  switch (type)
+    {
+    case QtDebugMsg:
+      AppLogger::instance().debug(msg, category);
+      break;
+    case QtInfoMsg:
+      AppLogger::instance().info(msg, category);
+      break;
+    case QtWarningMsg:
+      AppLogger::instance().warning(msg, category);
+      break;
+    case QtCriticalMsg:
+      AppLogger::instance().critical(msg, category);
+      break;
+    case QtFatalMsg:
+      AppLogger::instance().critical(msg, category);
+      break;
+    }
+
+  inHandler = false;
+}
+
+} // end anonymous namespace
 
 // Windows UTF-8 console support
 #ifdef _WIN32
@@ -95,13 +147,13 @@ QPixmap createVisionMagicSplashPixmap()
   painter.drawText(subtitleRect, Qt::AlignLeft | Qt::AlignVCenter,
                    QString("Vision Magic Ecosystem"));
 
-  // Version info
+  // Version info（产品版本，非 Slicer 平台 5.8.x）
   painter.setPen(QColor(255, 255, 255, 180));
   QFont versionFont("Segoe UI", 12, QFont::DemiBold);
   painter.setFont(versionFont);
   const QRectF versionRect(60.0, splashSize.height() - 85.0, splashSize.width() - 120.0, 24.0);
-  painter.drawText(versionRect, Qt::AlignLeft | Qt::AlignVCenter,
-                   QString("V1.0.0.3"));
+  const QString versionText = RadianceAppVersion::displayVersionString();
+  painter.drawText(versionRect, Qt::AlignLeft | Qt::AlignVCenter, versionText);
 
   // Loading text
   painter.setPen(QColor(255, 255, 255, 140));
@@ -137,15 +189,38 @@ int SlicerAppMain(int argc, char* argv[])
 
   qSlicerApplicationHelper::preInitializeApplication(argv[0], new qAppStyle);
 
+  // 必须在 app 构造前设置，否则 init() 中 defaultSettings/语言加载会用错误的 applicationName
+  QCoreApplication::setApplicationName(QString::fromUtf8("VisionMagicEcosystem"));
+  QGuiApplication::setApplicationDisplayName(QString::fromUtf8("医学影像三维重建软件"));
+
+  // Initialize file logger as early as possible
+  AppLogger::instance().initialize();
+  qInstallMessageHandler(radianceQtMessageHandler);
+
   qSlicerApplication app(argc, argv);
   if (app.returnCode() != -1)
     {
     return app.returnCode();
     }
 
-  // 设置任务栏和系统显示的应用程序名称
-  QCoreApplication::setApplicationName(QString::fromUtf8("VisionMagic"));
-  QGuiApplication::setApplicationDisplayName(QString::fromUtf8("医学影像三维重建软件"));
+  // 单实例限制：同一台计算机上仅允许运行一个程序实例
+  QString singleInstanceLockPath =
+    QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+    + "/VisionMagicEcosystem.singleinstance.lock";
+  QDir().mkpath(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
+  QLockFile singleInstanceLock(singleInstanceLockPath);
+  singleInstanceLock.setStaleLockTime(5000);
+  if (!singleInstanceLock.tryLock(100))
+    {
+    QMessageBox::warning(
+      nullptr,
+      QString::fromUtf8("程序已在运行"),
+      QString::fromUtf8("医学影像三维重建软件已在运行，请勿重复启动。"));
+    return 1;
+    }
+
+  // DICOM 导入校验：向场景注册观察者，对新加入的 Volume 节点自动校验
+  VolumeImportValidator::installSceneObserver(app.mrmlScene());
 
   // 配置 DICOM 数据库路径到程序目录下，避免用户目录中文路径导致的编码问题
   {
@@ -154,10 +229,10 @@ int SlicerAppMain(int argc, char* argv[])
     QStringList schemaVersions = {"0.9.3", "0.9.2", "0.9.1", "0.9.0"};
     QString appDir = QCoreApplication::applicationDirPath();
     QString dicomDbPath = appDir + "/DICOMDatabase";
-    
+
     // 确保目录存在
     QDir().mkpath(dicomDbPath);
-    
+
     for (const QString& version : schemaVersions)
     {
       QString settingsKey = QString("DatabaseDirectory_%1").arg(version);
@@ -170,6 +245,22 @@ int SlicerAppMain(int argc, char* argv[])
 
   // 默认配置通过资源文件 DefaultSettings.ini 提供（Styles/Style、Modules/HomeModule）。
   // 此处不额外覆写用户偏好，保持简洁设计。
+
+  // 用户登录：启动前弹出用户登录对话框，未通过则退出。
+  // 开发时暂时关闭
+  {
+    if (!UserManager::instance().initialize())
+      {
+        QMessageBox::critical(nullptr, QString::fromUtf8("初始化失败"),
+          QString::fromUtf8("无法初始化用户数据库，请检查安装目录权限。"));
+        return 1;
+      }
+    qLoginDialog loginDialog;
+    if (loginDialog.exec() != QDialog::Accepted)
+      {
+        return 1;
+      }
+  }
 
   qRegisterMetaType<QPixmap>("QPixmap");
   QScopedPointer<SlicerMainWindowType> window;
@@ -187,11 +278,11 @@ int SlicerAppMain(int argc, char* argv[])
     window->setWindowTitle(windowTitle);
     }
 
-  return app.exec();
+  const int rc = app.exec();
+  AppLogger::instance().shutdown();
+  return rc;
 }
 
 } // end of anonymous namespace
 
 #include "qSlicerApplicationMainWrapper.cxx"
-
-

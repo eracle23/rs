@@ -28,7 +28,7 @@
  * 提供应用级别的日志记录功能：
  * - 记录用户操作（打开文件、保存、导出等）
  * - 记录错误和警告
- * - 日志文件存储至 %APPDATA%/VisionMagic/logs/
+ * - 日志文件存储至安装目录下的 logs/（若不可写则回退到 %APPDATA%/VisionMagic/logs/）
  * - 支持日志轮转（按日期）
  */
 class Q_RADIANCE_APP_EXPORT AppLogger : public QObject

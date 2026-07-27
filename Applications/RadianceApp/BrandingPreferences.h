@@ -2,27 +2,28 @@
 #define __RadianceApp_BrandingPreferences_h
 
 #include <QtGlobal>
+#include <QSettings>
 #include <QString>
+#include "qSlicerCoreApplication.h"
 
 namespace RadianceBranding
 {
 
-inline bool brandStyleEnabled()
+/// 是否允许通过外观菜单切换深浅主题（默认 false：不可修改主题）
+/// 优先从 DefaultSettings.ini 读取，其次从用户设置读取
+inline bool themeSwitchAllowed()
 {
-  if (qEnvironmentVariableIsSet("ALICE_ENABLE_BRAND_STYLE"))
+  if (qSlicerCoreApplication* app = qSlicerCoreApplication::application())
     {
-    return qEnvironmentVariableIntValue("ALICE_ENABLE_BRAND_STYLE") != 0;
+    if (QSettings* defaults = app->defaultSettings())
+      {
+      if (defaults->contains(QStringLiteral("Radiance/AllowThemeSwitch")))
+        {
+        return defaults->value(QStringLiteral("Radiance/AllowThemeSwitch")).toBool();
+        }
+      }
     }
-  if (qEnvironmentVariableIsSet("ALICE_NATIVE_STYLE"))
-    {
-    return qEnvironmentVariableIntValue("ALICE_NATIVE_STYLE") == 0;
-    }
-  return false;
-}
-
-inline bool nativeStyleEnabled()
-{
-  return !brandStyleEnabled();
+  return QSettings().value(QStringLiteral("Radiance/AllowThemeSwitch"), false).toBool();
 }
 
 }

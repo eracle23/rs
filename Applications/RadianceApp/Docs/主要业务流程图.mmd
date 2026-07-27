@@ -1,0 +1,21 @@
+flowchart TB
+    Start([启动]) --> Login[登录界面]
+    Login -->|失败| Exit([退出])
+    Login -->|通过| Main[主工作界面]
+
+    Main --> Load[原始影像载入<br/>DICOM 导入]
+    Load --> Check{体数据校验}
+    Check -->|不通过| Load
+    Check -->|通过| Hub[影像处理与分析]
+
+    Hub --> View["2D / 3D 影像查看"]
+    Hub --> Measure[影像测量及标注]
+    Hub --> Segment[影像分割]
+
+    View --> Save[数据保存]
+    Measure --> Save
+    Segment --> Save
+
+    Save -.->|继续处理| Hub
+    Save -.->|导入新数据| Load
+    Main -.-> Hub

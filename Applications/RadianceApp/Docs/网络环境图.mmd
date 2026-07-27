@@ -1,0 +1,14 @@
+flowchart TB
+    User[操作者] --> UI[显示与输入设备]
+    UI --> PC[Windows工作站]
+
+    subgraph deploy [单机部署边界]
+        PC --> App[VisionMagicEcosystem.exe]
+        App --> Auth[UserManager / users.db]
+        App --> DicomDB[DICOMDatabase]
+        App --> Logs[AppLogger / logs]
+        App --> AV[火绒等安全软件共存]
+    end
+
+    Media[本地磁盘或移动存储] -->|离线导入| App
+    PACS[外部网络/PACS] -.->|可选非默认| App
