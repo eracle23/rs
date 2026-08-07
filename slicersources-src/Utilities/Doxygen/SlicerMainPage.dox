@@ -1,0 +1,17 @@
+/** \mainpage Slicer
+ *
+ * \section intro Introduction
+ *
+ * Slicer is a multi-platform, free and open source software package for visualization and medical image computing.
+ *
+ * These pages document the source code of Slicer.
+ *
+ * \subsection implinks Important Links
+ * - <a href="https://slicer.readthedocs.io/en/latest/developer_guide/index.html">Developer Guide</a>
+ * - <a href="https://github.com/Slicer/Slicer/issues">Issue tracker</a>
+ * - <a href="https://slicer.cdash.org/index.php?project=SlicerPreview">CDash quality dashboard</a>
+ *
+ * \subsection other Other
+ * For more information on using Slicer browse to https://www.slicer.org
+ *
+ */

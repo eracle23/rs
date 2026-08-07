@@ -1,0 +1,37 @@
+/* Minimal brand QSS – follow current palette; avoid hard-coded colors */
+QWidget {
+  background: palette(window);
+  color: palette(window-text);
+}
+
+QGroupBox::title {
+  padding: 2px 6px;
+}
+
+QPushButton {
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: palette(highlight);
+  color: palette(highlighted-text);
+  border: 1px solid palette(mid);
+}
+
+QToolTip {
+  background: palette(toolTipBase);
+  color: palette(toolTipText);
+  border: 1px solid palette(dark);
+}
+
+qMRMLViewControllerBar QWidget#BarWidget {
+  color: palette(window-text);
+}
+
+qMRMLViewControllerBar QLabel#ViewLabel {
+  color: palette(highlighted-text);
+  font-weight: 600;
+  background-color: transparent;
+}
+
+qMRMLViewControllerBar QToolButton {
+  color: palette(highlighted-text);
+}
