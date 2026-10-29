@@ -1,4 +1,4 @@
-"""
+r"""
 VisionMagic 启动配置脚本
 在 Slicer 启动时自动执行，用于配置 UI 精简和功能限制。
 
@@ -33,7 +33,7 @@ def _appendMarkerLog(msg):
     try:
         os.makedirs(_marker_dir, exist_ok=True)
         with open(_marker_file, "a", encoding="utf-8") as f:
-            f.write("[%s] %s\n" % (datetime.now().isoformat(), msg))
+            f.write(f"[{datetime.now().isoformat()}] {msg}\n")
     except Exception:
         pass
 
@@ -41,7 +41,7 @@ def _appendMarkerLog(msg):
 try:
     os.makedirs(_marker_dir, exist_ok=True)
     with open(_marker_file, "w", encoding="utf-8") as f:
-        f.write("loaded at %s\nSLICERRC=%s\n" % (datetime.now().isoformat(), _slicerrc_path))
+        f.write(f"loaded at {datetime.now().isoformat()}\nSLICERRC={_slicerrc_path}\n")
 except Exception:
     pass
 
@@ -115,8 +115,8 @@ def configureSegmentEditorEffects():
             _appendMarkerLog("Segment Editor effects configured, count=%d" % count)
         print("VisionMagic: Segment Editor effects configured, count=%d" % count)
     except Exception as e:
-        _appendMarkerLog("configureSegmentEditorEffects error: %s" % str(e))
-        print("VisionMagic: Failed to configure Segment Editor effects: %s" % str(e))
+        _appendMarkerLog(f"configureSegmentEditorEffects error: {e}")
+        print(f"VisionMagic: Failed to configure Segment Editor effects: {e}")
 
 
 def _hideActionByName(root, name):
@@ -183,7 +183,7 @@ def hideUnwantedUIElements():
         ):
             _hideActionByName(mainWindow, n)
     except Exception as e:
-        _appendMarkerLog("hideByHelpNames error: %s" % str(e))
+        _appendMarkerLog(f"hideByHelpNames error: {e}")
     try:
         _hideActionsContainingText(
             mainWindow,
@@ -200,7 +200,7 @@ def hideUnwantedUIElements():
             ],
         )
     except Exception as e:
-        _appendMarkerLog("hideByText(help) error: %s" % str(e))
+        _appendMarkerLog(f"hideByText(help) error: {e}")
     # VISIONMAGIC_DEBUG=1 时保留 Python Console 和 Error Log 可见
     _skip_python_error_log = _VISIONMAGIC_DEBUG
     if not _skip_python_error_log:
@@ -215,17 +215,17 @@ def hideUnwantedUIElements():
                 _hideActionByName(mainWindow, n)
             _hideActionsContainingText(mainWindow, ["Python Interactor", "Python Console", "Error Log"])
         except Exception as e:
-            _appendMarkerLog("hidePython error: %s" % str(e))
+            _appendMarkerLog(f"hidePython error: {e}")
         try:
             _hideDockWidgetByName(mainWindow, "PythonConsoleDockWidget")
             _hideDockWidgetByName(mainWindow, "ErrorLogDockWidget")
         except Exception as e:
-            _appendMarkerLog("hideDocks error: %s" % str(e))
+            _appendMarkerLog(f"hideDocks error: {e}")
     try:
         _hideActionByName(mainWindow, "ViewExtensionsManagerAction")
         _hideActionByName(mainWindow, "ExtensionsManagerAction")
     except Exception as e:
-        _appendMarkerLog("hideExtMgr error: %s" % str(e))
+        _appendMarkerLog(f"hideExtMgr error: {e}")
     try:
         toolBars = mainWindow.findChildren("QToolBar")
         for tb in toolBars:
@@ -237,8 +237,8 @@ def hideUnwantedUIElements():
                 tb.hide()
                 break
     except Exception as e:
-        _appendMarkerLog("hideDialogToolBar error: %s" % str(e))
-    _appendMarkerLog("hideUnwantedUIElements: done (debug=%s)" % _VISIONMAGIC_DEBUG)
+        _appendMarkerLog(f"hideDialogToolBar error: {e}")
+    _appendMarkerLog(f"hideUnwantedUIElements: done (debug={_VISIONMAGIC_DEBUG})")
 
 
 def _onModuleSelected(moduleName):
@@ -267,7 +267,7 @@ def _runAfterStartup():
         # 再次延迟执行一次，应对部分控件延迟创建
         qt.QTimer.singleShot(1500, hideUnwantedUIElements)
     except Exception as e:
-        _appendMarkerLog("_runAfterStartup error: %s" % str(e))
+        _appendMarkerLog(f"_runAfterStartup error: {e}")
 
     # 通过 moduleSelector 连接"切换模块"信号(用户从下拉框切换到分割编辑器时也生效)
     try:

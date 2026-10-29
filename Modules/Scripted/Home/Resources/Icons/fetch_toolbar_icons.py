@@ -56,13 +56,13 @@ ICON_SPECS: Iterable[IconSpec] = [
 
 def fetch_svg(slug: str) -> str:
     url = BASE_URL.format(slug=slug)
-    with urlopen(url) as response:  # nosec: B310 (trusted OSS source)
+    with urlopen(url) as response:  # noqa: S310  # nosec: B310 (fixed HTTPS source)
         return response.read().decode("utf-8")
 
 
 def recolor_svg(svg_text: str, accent_color: str) -> str:
     ET.register_namespace("", "http://www.w3.org/2000/svg")
-    root = ET.fromstring(svg_text)
+    root = ET.fromstring(svg_text)  # noqa: S314 - SVG from the fixed Tabler source
     root.set("width", str(ICON_SIZE))
     root.set("height", str(ICON_SIZE))
     # enforce consistent visual weight for high-DPI displays

@@ -1,3 +1,6 @@
+# Imported upstream snapshots are kept unchanged; lint project-owned files instead.
+exclude: ^(slicersources-src/|SlicerLanguageTranslations-main/)
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: "v4.6.0"
@@ -43,7 +46,7 @@ repos:
     hooks:
       - id: codespell
         exclude: "(.png|.svg)$"
-        args: ["-L", "dependees,normaly,therefrom"]
+        args: ["-L", "dependees,normaly,therefrom,supercede"]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
     rev: "0.29.1"

@@ -9,7 +9,7 @@ import os
 import ctk
 import qt
 import slicer
-from slicer.ScriptedLoadableModule import *
+from slicer.ScriptedLoadableModule import ScriptedLoadableModule, ScriptedLoadableModuleWidget
 
 
 class VisionMagicConfig(ScriptedLoadableModule):
@@ -18,7 +18,7 @@ class VisionMagicConfig(ScriptedLoadableModule):
     用于 UI 精简和功能配置
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent: object):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = "VisionMagic Config"
         self.parent.categories = [""]  # 隐藏在模块列表中
@@ -70,7 +70,7 @@ class VisionMagicConfig(ScriptedLoadableModule):
         except Exception as e:
             logging.warning(f"VisionMagic: Could not configure DICOM database path: {e}")
 
-    def _hasNonAsciiInPath(self, path):
+    def _hasNonAsciiInPath(self, path: str) -> bool:
         """检查路径是否包含非 ASCII 字符"""
         try:
             path.encode("ascii")

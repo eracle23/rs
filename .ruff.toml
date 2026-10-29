@@ -2,6 +2,8 @@ target-version = "py39"
 line-length = 120
 
 [lint]
+# Chinese punctuation in user-facing text and comments is intentional.
+allowed-confusables = ['，', '：', '；', '（', '）', '！', '？']
 select = [
   "ARG",         # flake8-unused-arguments
   "ANN",         # flake8-annotations
@@ -71,6 +73,10 @@ isort.known-first-party = [
 pydocstyle.convention = "pep257"
 
 [lint.per-file-ignores]
-# Disable "RUF012: Mutable class attributes should be annotated"
-# to allow convenient declaration of instance variables in the HomeWidget class.
+# Startup hook uses dynamically typed PythonQt objects and intentionally tolerates optional UI failures.
+"Applications/RadianceApp/Resources/Settings/.slicerrc.py" = ["ANN001", "ANN202", "S110", "PLR0912"]
+# These two maintenance scripts contain exact legacy encoding samples and replacement text.
+"Applications/RadianceApp/fix_login_encoding.py" = ["E501"]
+"Applications/RadianceApp/fix_zh.py" = ["RUF001"]
+# Disable RUF012 for convenient HomeWidget instance variables.
 "Modules/Scripted/Home/Home.py" = ["RUF012"]

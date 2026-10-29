@@ -148,7 +148,7 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
 
         for text, icon, callback in actions:
             action = navigationToolBar.addAction(icon, text)
-            action.triggered.connect(lambda checked=False, fn=callback: fn())
+            action.triggered.connect(lambda _checked=False, fn=callback: fn())
 
     def _decorateHomeCards(self):
         """Apply dynamic properties so QSS can skin the cards and labels"""
@@ -204,7 +204,7 @@ class HomeWidget(ScriptedLoadableModuleWidget, VTKObservationMixin):
         layoutNode = layoutLogic.GetLayoutNode()
         layoutNode.SetLayout(layoutId)
 
-    def onLayoutChanged(self, caller=None, event=None):
+    def onLayoutChanged(self, _caller: object = None, _event: object = None):
         """Sync layout toggle state with current MRML layout"""
         if not hasattr(self, "_layoutNode") or self._layoutNode is None:
             return
