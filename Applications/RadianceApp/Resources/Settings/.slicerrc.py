@@ -8,7 +8,7 @@ VisionMagic 启动配置脚本
 3. 从命令行启动时，若控制台可见，会看到：VisionMagic: .slicerrc.py 已加载 (SLICERRC=...)
 4. 若 marker 文件不存在或时间戳很旧，说明脚本未被调用，请检查：
    - 安装目录下是否存在 lib/VisionMagicEcosystem-5.8/Settings/.slicerrc.py
-   - LauncherSettings.ini 中是否有 SLICERRC=... 且路径正确（launcher 会先设置环境变量再启动 exe）
+   - LauncherSettings.ini 中是否有 SLICERRC=... 且路径正确(launcher 会先设置环境变量再启动 exe)
 5. 调试时设置环境变量 VISIONMAGIC_DEBUG=1 可保留 Error Log 可见，便于查看 print 输出
 """
 
@@ -16,11 +16,11 @@ import os
 import sys
 from datetime import datetime
 
-# 最先打印，用于确认本脚本是否被 Slicer 调用（从命令行启动时可看到）
+# 最先打印，用于确认本脚本是否被 Slicer 调用(从命令行启动时可看到)
 _slicerrc_path = os.environ.get("SLICERRC", "")
 print(f"VisionMagic: .slicerrc.py 已加载 (SLICERRC={_slicerrc_path})", flush=True)
 
-# 写入 marker 文件以确认脚本是否被执行（GUI 模式下 console 不可见时使用）
+# 写入 marker 文件以确认脚本是否被执行(GUI 模式下 console 不可见时使用)
 _marker_dir = os.path.join(os.path.expanduser("~"), ".visionmagic")
 _marker_file = os.path.join(_marker_dir, "slicerrc_loaded.txt")
 
@@ -45,19 +45,19 @@ try:
 except Exception:
     pass
 
-# 将 Settings 目录加入 Python 路径（由 SLICERRC 或 VISIONMAGIC_SETTINGS_DIR 配置）
+# 将 Settings 目录加入 Python 路径(由 SLICERRC 或 VISIONMAGIC_SETTINGS_DIR 配置)
 _settings_dir = os.environ.get("VISIONMAGIC_SETTINGS_DIR", "")
 if not _settings_dir and _slicerrc_path:
     _settings_dir = os.path.dirname(os.path.abspath(_slicerrc_path))
 if _settings_dir and _settings_dir not in sys.path:
     sys.path.insert(0, _settings_dir)
 
-import qt
-import slicer
+import qt  # noqa: E402
+import slicer  # noqa: E402
 
 _appendMarkerLog("import slicer, qt ok")
 
-# 允许的效果列表（与下方配置逻辑共用）
+# 允许的效果列表(与下方配置逻辑共用)
 _ALLOWED_EFFECTS = [
     "Threshold",
     "Paint",
@@ -71,7 +71,7 @@ _ALLOWED_EFFECTS = [
 
 
 def _is_segment_editor_module(name):
-    """判断是否为分割编辑器或分割模块（Segment Editor 可能嵌入在 Segmentations 中）。"""
+    """判断是否为分割编辑器或分割模块(Segment Editor 可能嵌入在 Segmentations 中)。"""
     if not name:
         return False
     n = str(name).strip()
@@ -90,7 +90,7 @@ def configureSegmentEditorEffects():
         settings.setValue("SegmentEditor/UnorderedEffectsVisible", False)
 
         count = 0
-        # 1) 通过 SegmentEditor 模块获取（若已加载）
+        # 1) 通过 SegmentEditor 模块获取(若已加载)
         if hasattr(slicer.modules, "segmenteditor"):
             wr = slicer.modules.segmenteditor.widgetRepresentation()
             if wr:
@@ -254,7 +254,7 @@ def onModuleLoaded(moduleName):
 
 
 def onStartupCompleted():
-    """应用程序启动完成后的回调（主窗口已显示）。"""
+    """应用程序启动完成后的回调(主窗口已显示)。"""
     # 延迟 300ms 确保所有子控件已创建
     qt.QTimer.singleShot(300, _runAfterStartup)
 
@@ -269,7 +269,7 @@ def _runAfterStartup():
     except Exception as e:
         _appendMarkerLog("_runAfterStartup error: %s" % str(e))
 
-    # 通过 moduleSelector 连接"切换模块"信号（用户从下拉框切换到分割编辑器时也生效）
+    # 通过 moduleSelector 连接"切换模块"信号(用户从下拉框切换到分割编辑器时也生效)
     try:
         mainWin = slicer.util.mainWindow()
         if mainWin and hasattr(mainWin, "moduleSelector"):
@@ -299,7 +299,7 @@ if hasattr(slicer.app, "moduleManager"):
 
 # 使用 startupCompleted 信号：主窗口显示后才执行
 slicer.app.connect("startupCompleted()", onStartupCompleted)
-# 备用：若 startupCompleted 未触发（如 RadianceApp 启动流程不同），5 秒后强制执行
+# 备用：若 startupCompleted 未触发(如 RadianceApp 启动流程不同)，5 秒后强制执行
 qt.QTimer.singleShot(5000, lambda: (_appendMarkerLog("fallback 5s timer"), onStartupCompleted()))
 _appendMarkerLog("registered startupCompleted + 5s fallback")
 print("VisionMagic: Startup configuration script registered")
