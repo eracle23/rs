@@ -60,7 +60,11 @@ UserManager::~UserManager()
 bool UserManager::initialize()
 {
   QString dbPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-  QDir().mkpath(dbPath);
+  if (!QDir().mkpath(dbPath))
+    {
+    d->lastError = QString::fromUtf8("无法创建用户数据库目录: %1").arg(dbPath);
+    return false;
+    }
   dbPath += "/users.db";
 
   d->database = QSqlDatabase::addDatabase("QSQLITE", "RadianceUsers");
@@ -72,6 +76,28 @@ bool UserManager::initialize()
         .arg(d->database.lastError().text());
       qDebug() << d->lastError;
       return false;
+    }
+
+  // 实际创建探测表并回滚；只读库也可能成功打开或开始事务。
+  QSqlQuery writeProbe(d->database);
+  if (!writeProbe.exec("BEGIN IMMEDIATE TRANSACTION"))
+    {
+    d->lastError = QString::fromUtf8("用户数据库不可写: %1")
+      .arg(writeProbe.lastError().text());
+    return false;
+    }
+  if (!writeProbe.exec("CREATE TABLE __radiance_write_probe__(x INTEGER)"))
+    {
+    d->lastError = QString::fromUtf8("用户数据库不可写: %1")
+      .arg(writeProbe.lastError().text());
+    writeProbe.exec("ROLLBACK");
+    return false;
+    }
+  if (!writeProbe.exec("ROLLBACK"))
+    {
+    d->lastError = QString::fromUtf8("用户数据库写入检查结束失败: %1")
+      .arg(writeProbe.lastError().text());
+    return false;
     }
 
   QSqlQuery query(d->database);
@@ -172,6 +198,12 @@ QString UserManager::hashPassword(const QString& password)
 //-----------------------------------------------------------------------------
 bool UserManager::authenticate(const QString& username, const QString& password)
 {
+  if (password.isEmpty())
+    {
+    d->lastError = QString::fromUtf8("密码不能为空");
+    return false;
+    }
+
   QSqlQuery query(d->database);
 
   query.prepare(
@@ -231,14 +263,24 @@ bool UserManager::authenticate(const QString& username, const QString& password)
       );
       updateQuery.addBindValue(user.failedAttempts);
       updateQuery.addBindValue(user.id);
-      updateQuery.exec();
+      if (!updateQuery.exec())
+        {
+        d->lastError = QString::fromUtf8("保存登录失败次数失败: %1")
+          .arg(updateQuery.lastError().text());
+        return false;
+        }
 
       if (user.failedAttempts >= 5)
         {
           QSqlQuery lockQuery(d->database);
           lockQuery.prepare("UPDATE users SET is_locked = 1 WHERE id = ?");
           lockQuery.addBindValue(user.id);
-          lockQuery.exec();
+          if (!lockQuery.exec())
+            {
+            d->lastError = QString::fromUtf8("锁定账户失败: %1")
+              .arg(lockQuery.lastError().text());
+            return false;
+            }
 
           emit userLocked(user.id);
 
@@ -259,7 +301,13 @@ bool UserManager::authenticate(const QString& username, const QString& password)
   );
   updateQuery.addBindValue(QDateTime::currentDateTime().toString(Qt::ISODate));
   updateQuery.addBindValue(user.id);
-  updateQuery.exec();
+  if (!updateQuery.exec())
+    {
+    d->lastError = QString::fromUtf8("更新登录状态失败: %1")
+      .arg(updateQuery.lastError().text());
+    return false;
+    }
+  user.failedAttempts = 0;
 
   d->currentUser = user;
   d->isLoggedIn = true;
